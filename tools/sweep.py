@@ -4,7 +4,7 @@ import json, os, re, sys, html
 HERE = os.path.dirname(os.path.abspath(__file__))
 PLAN = json.loads(open(os.path.join(HERE, 'assets', 'plan.js')).read()
                   .split('=', 1)[1].rstrip().rstrip(';'))
-PAGE = open(os.path.join(HERE, '..', 'index.html')).read()
+PAGE = open(os.path.join(HERE, '..', 'docs', 'index.html')).read()
 
 def txt(h):
     h = re.sub(r'<(script|style)[^>]*>.*?</\1>', ' ', h, flags=re.S)

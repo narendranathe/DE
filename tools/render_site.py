@@ -4,7 +4,7 @@ import json, os, re, html as H
 HERE = os.path.dirname(os.path.abspath(__file__))
 PLAN = json.loads(open(os.path.join(HERE, 'assets', 'plan.js')).read()
                   .split('=', 1)[1].rstrip().rstrip(';'))
-OUT = os.path.join(HERE, '..', 'index.html')
+OUT = os.path.join(HERE, '..', 'docs', 'index.html')
 
 DONE_THRU, TODAY = 0, 1          # ships blank: a new reader starts at Day 1
 TOTAL = 84

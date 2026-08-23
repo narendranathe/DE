@@ -1,14 +1,14 @@
 # tools — rebuilding the tracker
 
-`../index.html` is generated, not hand-edited. Regenerate it with:
+`../docs/index.html` is generated, not hand-edited. Regenerate it with:
 
 ```sh
 cd tools
 python3 parse_plan.py    # generalized.md -> assets/plan.js
-python3 render_site.py   # assets/plan.js -> ../index.html
+python3 render_site.py   # assets/plan.js -> ../docs/index.html
 ```
 
-Then commit `index.html`. GitHub Pages serves it directly — no CI step.
+Then commit `docs/index.html`. GitHub Pages serves it directly — no CI step.
 
 | File | Role |
 |---|---|

@@ -5,7 +5,7 @@ A self-contained tracker for a 12-week AI + Data + Lakehouse engineering program
 
 **Live:** https://narendranathe.github.io/DE/
 
-Open `index.html` and it works — no build step, no dependencies, no backend. Progress saves
+Open `docs/index.html` and it works — no build step, no dependencies, no backend. Progress saves
 to your browser.
 
 ## What's in it
@@ -23,7 +23,7 @@ to your browser.
 
 ## Making it yours
 
-A `CONFIG` block near the top of `index.html` holds six values — program title, target role,
+A `CONFIG` block near the top of `docs/index.html` holds six values — program title, target role,
 start date, current day, your name, accent colour. The gear icon in the nav edits the same
 fields and saves them to your browser, so you never have to touch the file.
 
@@ -35,14 +35,14 @@ Everything you tick — checkboxes, milestone rewards, your six STAR stories —
 
 ## Rebuilding
 
-`index.html` is generated. See [`tools/README.md`](tools/README.md):
+`docs/index.html` is generated. See [`tools/README.md`](tools/README.md):
 
 ```sh
 cd tools
 python3 parse_plan.py    # generalized.md -> assets/plan.js
-python3 render_site.py   # assets/plan.js -> ../index.html
+python3 render_site.py   # assets/plan.js -> ../docs/index.html
 ```
 
 ## Deploying
 
-Settings → Pages → *Deploy from a branch* → `main` / `/ (root)`. It republishes on every push.
+Settings → Pages → *Deploy from a branch* → `main` / `/docs`. It republishes on every push.
