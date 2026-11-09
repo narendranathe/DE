@@ -5,7 +5,8 @@ Status: building. Owner: the repo owner. Last updated: 2026-11-09.
 ## 1. Problem
 
 Today a practice question in a day card is a line of text with a LeetCode link. The learner leaves the
-page, solves it somewhere else, comes back and ticks a box by hand. Nothing records how they solved it,
+page, solves it somewhere else, comes back and ticks a box by hand. Many LeetCode problems also need a
+paid plan, so the plan depends on a subscription the owner does not want to buy. Nothing records how they solved it,
 how many hints they leaned on, or what other people did. The playground (section 07) runs code but it
 knows nothing about the question in front of you.
 
@@ -32,13 +33,16 @@ Success looks like this:
 
 ## 4. Scope
 
-First release: 24 questions.
-- SQL, 12: the practice rep on Days 1–6 and 8–13.
-- Python, 12: the "Solve & narrate" problems on Days 15–18.
+Release 2 covers **every LeetCode problem in the plan: 69 questions**, 37 SQL and 32 Python, each written
+here in original wording. Nothing in the plan needs a LeetCode account. The first release had 24 of them
+(Weeks 1–3 only); the other 45 were added once the first release showed the links still sent people away.
 
-Weeks 1–3 hold 36 questions (18 SQL and 18 Python). The other 12 are a data file each:
-Days 15–20 SQL practice reps, Days 19–20 Python problems (intervals, scheduling, trees and grids need
-tree and grid inputs). Day 7's timed set is not a single problem and is out of scope.
+- SQL, 37: every SQL problem in the plan, Days 1–78.
+- Python, 32: Days 15–20 as BUILD problems (10 XP), later days as PRACTICE problems (20 XP).
+- Tree and graph problems are in. The tests write a tree as a level-order list and a graph as an adjacency
+  list, and the learner gets `TreeNode` and `Node` objects (A4).
+- Two problems (Game Play Analysis III, Account Balance) only appear inside a checkbox that lists several
+  problems. They have no checkbox of their own, so no XP is at stake and every hint is free.
 
 Not in this release: server-side judging, live updates, direct messages, leaderboards, a code editor with
 syntax colours, languages other than SQL and Python, and speed tests. The hidden cases check that the answer
@@ -56,6 +60,12 @@ Each requirement has an ID. Every ID maps to at least one automated test (sectio
 - **W2** SOLVE HERE opens a split view over the page. Left: tabs for Description, Hints, Solutions,
   Discussion, Submissions. Right: editor, RUN, SUBMIT, RESET, results. Below 900 px the two stack.
   Esc closes it and focus returns to the button. The address `#p/<id>` opens a question directly.
+- **W4** No problem link in the plan sends you to LeetCode first. The link text opens the question in the
+  page (`#p/<id>`). A small `LC ↗` link right after it opens the LeetCode page in a new tab, with
+  `noopener noreferrer`.
+- **W5** Where a problem comes back on a later day, that day's checkbox gets its own SOLVE HERE button. It ticks
+  its own box, and it costs no XP (the bounty was on the first day). A checkbox that lists several problems gets
+  a link for each and no button, and opening a question from it ticks nothing.
 - **W3** Each question has one language. The editor starts from starter code. A draft is saved per
   question as you type. RESET restores the starter after confirmation.
 
@@ -132,13 +142,16 @@ Each requirement has an ID. Every ID maps to at least one automated test (sectio
 - **A2** For every question a test proves: the reference solution is Accepted; the starter code is not;
   each listed wrong solution ("mutant") is not Accepted; hidden expected output is computed from the
   reference, not typed by hand.
-- **A3** Every question's anchor matches exactly one checkbox on its day in the built page.
+- **A3** Every question with XP at stake has an anchor that matches exactly one checkbox on its day in the built page.
+- **A4** Every question names the LeetCode problem it replaces (`lc`), no two share one, and every LeetCode
+  problem linked in the plan has a question. A Python function question may declare `conv` so that trees and
+  graphs reach the learner as `TreeNode` and `Node` objects while the test data stays plain lists.
 
 ## 6. XP rules in one place
 
 | Item | Rule |
 |---|---|
-| Bounty | SQL practice rep 20, Python Build problem 10 |
+| Bounty | SQL practice rep 20, Python Build problem (Days 15–20) 10, later Python problem 20. A repeat on a later day and a problem with no checkbox: 0 |
 | Cost after k reveals | `round(B × k / 4)`; k = 4 is the full approach |
 | Counted when | the question's category is fully earned on that day |
 | Day XP | existing score − costs, floor 0 |
@@ -174,15 +187,15 @@ All tables have row-level security on. The schema is `supabase/schema.sql`.
 | Area | Suite | How it runs |
 |---|---|---|
 | J3, J2 verdicts, H3, H5 | `judge.test.js` | pure functions, no browser |
-| J4, J6, A2 | `problems.test.js` | real DuckDB and real Python in Node, 24 questions |
+| J4, J6, A2 | `problems.test.js` | real DuckDB and real Python in Node, 69 questions |
 | C3, C4, C5, C7, S3 | `community.memory.test.js` | in-memory adapter with the same rules |
 | C1, C8, S3 | `community.supabase.test.js` | the same adapter code, sending its calls through a small stand-in for the Supabase client onto the real `schema.sql` in Postgres (PGlite) |
 | (both above) | `community.contract.js` | one list of 14 cases that both adapter suites run, so the two backends cannot drift apart |
 | C4, C6, C7, P1–P3 | `schema.rls.test.js` | the real SQL, in Postgres (PGlite), as anon and signed-in roles |
 | H1–H6, S1, S3, W1 | `workspace.core.test.js` | pure rules: hint order and cost, draft and submission keeping, progress merge, safe text parsing |
-| A3, W1 | `mapping.test.js` | built page: every question lands on its own checkbox, script order, one self-contained file |
+| A3, A4, W1, W4, W5 | `mapping.test.js` | built page: every question lands on its own checkbox, no LeetCode-first link left, review days, multi-problem boxes, script order, one self-contained file |
 | P4 and versions | `static.test.js` | no markup built from text; the engine versions agree everywhere |
-| W1–W3, H1–H6, J1, J2, J5, C1–C8, S1, S2, P4 | `e2e/workspace.e2e.js` | headless Chromium on the built page, with real DuckDB and real Python, real clicks |
+| W1–W5, H1–H6, J1, J2, J5, C1–C8, S1, S2, P4 | `e2e/workspace.e2e.js` | headless Chromium on the built page, with real DuckDB and real Python, real clicks |
 
 Run `npm install` once, then `npm test`. The browser suite is opt-in: `npm run test:e2e`.
 

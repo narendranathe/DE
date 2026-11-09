@@ -39,7 +39,16 @@
         if (e > i + 1) { flush(); out.push({ t: 'code', v: s.slice(i + 1, e) }); i = e + 1; continue; }
       } else if (s[i] === '*' && s[i + 1] === '*') {
         var f = s.indexOf('**', i + 2);
-        if (f > i + 2) { flush(); out.push({ t: 'bold', v: s.slice(i + 2, f) }); i = f + 2; continue; }
+        if (f > i + 2) {
+          flush();
+          var inner = s.slice(i + 2, f), tok = { t: 'bold', v: inner };
+          // a `code` span inside bold text: keep the pieces, so the page shows code and not the backticks
+          if (inner.indexOf('`') >= 0) {
+            var kids = parseInline(inner);
+            for (var j = 0; j < kids.length; j++) if (kids[j].t === 'code') { tok.kids = kids; break; }
+          }
+          out.push(tok); i = f + 2; continue;
+        }
       }
       buf += s[i]; i++;
     }

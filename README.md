@@ -75,17 +75,27 @@ idea in a minute, then do the real build in your repo.
 
 ## Solve it here
 
-Weeks 1–3 have 24 questions you can solve without leaving the page: 12 in SQL (Days 1–6 and 8–13) and
-12 in Python (Days 15–18). Each one has a **SOLVE HERE** button next to its checkbox, in the day card and
-in the TODAY console. It opens the problem on the left and an editor on the right.
+Every SQL and Python problem in the plan has its own question in the page: 69 of them, 37 in SQL and
+32 in Python. The questions are written here, in original wording, so you do not need a LeetCode account
+or a LeetCode subscription. Click the title of a problem anywhere in a day card and it opens the
+workspace: the problem on the left, an editor on the right. A small **LC ↗** link beside the title opens
+the matching LeetCode page in a new tab, in case you want to compare.
+
+- A problem that has a checkbox of its own also has a **SOLVE HERE** button next to it, in the day card
+  and in the TODAY console. An accepted answer ticks that box.
+- When a problem comes back on a later day (a cold re-solve), that day's checkbox gets its own SOLVE HERE
+  button. It ticks that day's box and costs no XP: the hints were paid for on the first day.
+- A checkbox that lists several problems (a timed set) gets a link for each problem and no button. Opening
+  one does not tick the box. Two problems only appear in such a set, so they have no XP at stake and
+  every hint on them is free.
 
 - **RUN** checks the sample cases and shows your output beside the expected output.
 - **SUBMIT** checks every case, including hidden ones, and saves the attempt. Verdicts are Accepted,
   Wrong Answer, Runtime Error and Time Limit Exceeded (5 seconds per case). Accepted ticks the question's
   own checkbox for you. *Could not run the checker* is not a verdict on your code: it means the engine
   did not download, so check your connection and try again.
-- **Hints cost XP.** Each question has a bounty: 20 XP for a SQL practice rep, 10 XP for a Python build
-  problem. Three hints and then the full approach open in order, and each asks you to confirm first. After
+- **Hints cost XP.** Each question has a bounty: 20 XP for a SQL practice rep or a later Python problem,
+  10 XP for a Python build problem on Days 15–20. Three hints and then the full approach open in order, and each asks you to confirm first. After
   *k* reveals you have paid `round(bounty × k / 4)`, so the full approach costs the whole bounty. After
   hint 1, hint 2, hint 3 and the approach, the running total is 5, 10, 15 and 20 XP for SQL and 3, 5, 8 and
   10 XP for Python. The day line shows the result, for example

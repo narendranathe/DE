@@ -57,7 +57,7 @@ the first time someone presses RUN, so nothing is bundled into the page.
 
 ## Editing the question bank
 
-The 24 questions on the page are files in `tools/problems/`, one question per file. How to write one is in
+The 69 questions on the page are files in `tools/problems/`, one question per file. How to write one is in
 [`tools/problems/README.md`](problems/README.md). Then:
 
 ```sh

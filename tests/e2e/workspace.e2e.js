@@ -435,6 +435,139 @@ test('W2 the address #p/<id> opens a question straight away, and a bad id opens 
   assert.deepEqual(errors, []);
 });
 
+test('no LeetCode needed: titles open the workspace, a repeat ticks its own box, a box with several problems only links', { timeout: 600000 }, async (t) => {
+  const env = await start();
+  t.after(() => env.close());
+  const { page, errors } = await env.newPage();
+  const popups = [];
+  page.context().on('page', (p) => popups.push(p));
+  await page.goto(env.url);
+  await page.waitForFunction(() => window.Workspace && window.DE);
+  const here = page.url();
+  const REPEAT = bank['sql-d01-delete-duplicate-emails'];     // first seen on day 1, cold re-solve on day 62 (box 62.12)
+  const IN_SET = bank['sql-d09-last-person-on-the-bus'];      // also listed in the day 7 timed set (box 7.6)
+  const LINK_ONLY = bank['sql-d07-game-play-analysis-iii'];   // only exists inside the day 7 timed set
+  const editor = (code) => page.fill('#wsEditor', code);
+  const submit = async () => {
+    await page.evaluate(() => { const v = document.querySelector('#wsResult .ws-verdict'); if (v) v.remove(); });
+    await page.click('#wsSubmit');
+    await page.waitForSelector('#wsResult .ws-verdict', { timeout: 150000 });
+    return page.getAttribute('#wsResult .ws-verdict', 'data-verdict');
+  };
+  const closeQ = async () => { await page.keyboard.press('Escape'); await page.waitForSelector('#ws:not([open])', { state: 'attached' }); };
+  const checked = (key) => page.evaluate((k) => document.querySelector(`#days input[data-k="${k}"]`).checked, key);
+
+  await t.test('N1 every LeetCode link in the plan is the small extra, right after the link that opens the question here', async () => {
+    const info = await page.evaluate(() => {
+      const lc = [...document.querySelectorAll('#days a[href*="leetcode.com/problems/"]')];
+      return {
+        count: lc.length,
+        allSmall: lc.every((a) => a.classList.contains('lc') && a.target === '_blank' && /noopener/.test(a.rel) && /noreferrer/.test(a.rel) && /LC/.test(a.textContent)),
+        afterQlink: lc.every((a) => { const prev = a.previousElementSibling; return prev && prev.classList.contains('qlink'); }),
+        qlinks: document.querySelectorAll('#days a.qlink').length,
+      };
+    });
+    assert.ok(info.count >= 69, 'one LeetCode extra for each problem link: ' + info.count);
+    assert.equal(info.allSmall, true);
+    assert.equal(info.afterQlink, true);
+    assert.equal(info.qlinks, info.count, 'one link into the page for each LeetCode link');
+  });
+
+  await t.test('N2 clicking a question title opens the workspace in this page, with no new tab', async () => {
+    const q = bank['sql-d22-manager-left-the-company'];
+    const link = page.locator(`#d22 a.qlink[data-p="${q.id}"]`);
+    await link.scrollIntoViewIfNeeded();
+    await link.click();
+    await page.waitForSelector('#ws[open]');
+    assert.equal(await page.evaluate(() => location.hash), '#p/' + q.id);
+    assert.equal(await page.innerText('#wsTitle'), q.title);
+    assert.match(await page.innerText('#wsKind'), /DAY 22/);
+    assert.equal(popups.length, 0, 'no new tab');
+    assert.equal(page.url().split('#')[0], here.split('#')[0], 'still on this page, not on leetcode.com');
+    await closeQ();
+  });
+
+  await t.test('N3 the button on a review day ticks that day\'s box and leaves day 1 alone', async () => {
+    const btn = page.locator(`#d62 .solve[data-p="${REPEAT.id}"]`);
+    assert.equal(await btn.count(), 1, 'the review day has its own SOLVE HERE');
+    assert.equal(await checked('62.12'), false);
+    assert.equal(await checked('1.7'), false);
+    await btn.scrollIntoViewIfNeeded();
+    await btn.click();
+    await page.waitForSelector('#ws[open]');
+    assert.match(await page.innerText('#wsKind'), /DAY 62 · REVIEW/);
+    assert.match(await page.innerText('#wsBounty'), /REVIEW · THE XP WAS ON DAY 1/);
+    await editor(REPEAT.solution);
+    assert.equal(await submit(), 'Accepted');
+    assert.match(await page.innerText('#wsResult'), /Day 62/);
+    assert.equal(await checked('62.12'), true, 'the day 62 box is ticked');
+    assert.equal(await checked('1.7'), false, 'the day 1 box is not');
+    assert.equal(await page.evaluate(() => DE.isOn('62.12')), true);
+    assert.equal(await page.evaluate(() => DE.isOn('1.7')), false);
+    await closeQ();
+  });
+
+  await t.test('N4 a link inside a box that lists several problems opens the question and ticks nothing', async () => {
+    assert.equal(await page.locator('#d7 .solve').count(), 0, 'no button in a box with several problems');
+    assert.equal(await checked('7.6'), false);
+    const link = page.locator(`#d7 a.qlink[data-p="${IN_SET.id}"]`);
+    await link.scrollIntoViewIfNeeded();
+    await link.click();
+    await page.waitForSelector('#ws[open]');
+    assert.equal(await page.innerText('#wsTitle'), IN_SET.title);
+    assert.equal(await checked('7.6'), false, 'opening it does not tick the box');
+    assert.equal(popups.length, 0);
+    await closeQ();
+    assert.equal(await checked('7.6'), false);
+  });
+
+  await t.test('N5 a question with no checkbox of its own has no XP at stake: free hints, nothing ticked', async () => {
+    const link = page.locator(`#d7 a.qlink[data-p="${LINK_ONLY.id}"]`);
+    await link.scrollIntoViewIfNeeded();
+    await link.click();
+    await page.waitForSelector('#ws[open]');
+    assert.equal(await page.innerText('#wsTitle'), LINK_ONLY.title);
+    assert.match(await page.innerText('#wsBounty'), /NO XP AT STAKE/);
+    const desc = await page.innerText('#wsPane');
+    assert.match(desc, /2020-03-01/, 'the sample table shows its dates');
+    assert.doesNotMatch(desc, /"sql"/, 'and not the marker that builds them');
+    await page.click('#ws [role=tab][data-tab="hints"]');
+    assert.match(await page.innerText('#wsPane'), /No XP is at stake on this one/);
+    assert.match(await page.innerText('.ws-hint[data-n="1"] .ws-reveal'), /free/);
+    await page.click('.ws-hint[data-n="1"] .ws-reveal');
+    assert.match(await page.innerText('.ws-hint[data-n="1"] .ws-confirm-box'), /free/);
+    await page.click('.ws-hint[data-n="1"] .ws-confirm');
+    assert.ok((await page.innerText('#wsPane')).includes(LINK_ONLY.hints[0].slice(0, 30)));
+    assert.equal(await page.evaluate((id) => DE.ws().hints[id], LINK_ONLY.id), 1);
+    assert.equal(await page.evaluate((id) => DE.problem(id) || null, LINK_ONLY.id), null, 'no checkbox to tick');
+    await editor(LINK_ONLY.solution);
+    assert.equal(await submit(), 'Accepted');
+    assert.doesNotMatch(await page.innerText('#wsResult'), /ticked/i);
+    assert.equal(await checked('7.6'), false);
+    await closeQ();
+  });
+
+  await t.test('N7 code inside bold text shows as code, with no backticks on the screen', async () => {
+    const q = bank['py-d18-koko-eating-bananas'];
+    await page.evaluate((id) => window.Workspace.open(id), q.id);
+    await page.waitForSelector('#ws[open]');
+    assert.ok(await page.locator('#wsPane strong code').count() >= 1, 'a code span sits inside the bold text');
+    assert.doesNotMatch(await page.innerText('#wsPane'), /`/);
+    await closeQ();
+  });
+
+  await t.test('N6 a Python question that needs a tree opens in the page and passes with its reference solution', async () => {
+    const q = bank['py-d20-invert-binary-tree'];
+    await page.evaluate((id) => window.Workspace.open(id), q.id);
+    await page.waitForSelector('#ws[open]');
+    await editor(q.solution);
+    assert.equal(await submit(), 'Accepted');
+    await closeQ();
+  });
+
+  assert.deepEqual(errors, []);
+});
+
 test('W1 hints, submissions and drafts survive a reload', { timeout: 120000 }, async (t) => {
   const env = await start();
   t.after(() => env.close());

@@ -76,7 +76,7 @@
   /* ------------------------------------------------------------ safe text: statement blocks, tables */
   function inline(spans) {
     return spans.map(function (s) {
-      return s.t === 'code' ? h('code', null, s.v) : s.t === 'bold' ? h('strong', null, s.v) : document.createTextNode(s.v);
+      return s.t === 'code' ? h('code', null, s.v) : s.t === 'bold' ? h('strong', null, s.kids ? inline(s.kids) : s.v) : document.createTextNode(s.v);
     });
   }
   function blocks(md, loadable) {
@@ -93,6 +93,7 @@
   function cell(td, v) {
     if (v === null || v === undefined) { td.textContent = 'NULL'; td.className = 'nul'; }
     else if (typeof v === 'number') { td.textContent = String(v); td.className = 'num'; }
+    else if (typeof v === 'object' && typeof v.sql === 'string') td.textContent = (/^DATE '(\d{4}-\d\d-\d\d)'$/.exec(v.sql) || [0, v.sql])[1];
     else td.textContent = typeof v === 'object' ? JSON.stringify(v) : String(v);
     return td;
   }

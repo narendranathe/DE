@@ -91,6 +91,14 @@ test('A1 the generated problems.js matches the sources (run: node tools/build_pr
   assert.equal(code, 0);
 });
 
+test('A1 sample tables show dates as plain text, not as the marker that builds them', () => {
+  assert.equal(B.plainCell({ sql: "DATE '2020-03-01'" }), '2020-03-01');
+  assert.equal(B.plainCell(5), 5);
+  assert.equal(B.plainCell(null), null);
+  const text = fs.readFileSync(path.join(__dirname, '../tools/assets/problems.js'), 'utf8');
+  assert.equal(/"sql":"DATE/.test(text), false, 'a DATE marker leaked into the page data');
+});
+
 test('A1 the page payload stays small', { skip: !!only }, () => {
   const file = path.join(__dirname, '../tools/assets/problems.js');
   assert.ok(fs.existsSync(file), 'problems.js has not been built');

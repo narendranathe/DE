@@ -34,6 +34,22 @@ test('P4 parseInline splits text, `code` and **bold**, and never produces HTML',
   assert.deepEqual(W.parseInline(''), []);
 });
 
+test('P4 a `code` span inside **bold** is a code span inside the bold, never literal backticks', () => {
+  const [a, b, c] = W.parseInline('the **smallest whole number `k`** that works');
+  assert.deepEqual([a.t, b.t, c.t], ['text', 'bold', 'text']);
+  assert.deepEqual(b.kids, [{ t: 'text', v: 'smallest whole number ' }, { t: 'code', v: 'k' }]);
+  // bold with no code keeps the plain shape the page already relies on
+  assert.equal('kids' in W.parseInline('**plain**')[0], false);
+  // every question in the bank shows no stray backtick after parsing
+  const PROBLEMS = new Function('window', require('node:fs').readFileSync(require('node:path').join(__dirname, '../tools/assets/problems.js'), 'utf8') + '; return window.PROBLEMS;')({});
+  const walk = (spans) => spans.flatMap((s) => (s.t === 'bold' ? (s.kids ? walk(s.kids) : [s]) : [s]));
+  const texts = (md) => W.parseBlocks(md).flatMap((blk) => blk.t === 'p' ? walk(blk.v) : blk.t === 'ul' ? blk.items.flatMap(walk) : []);
+  for (const q of PROBLEMS) {
+    const all = [q.statement, q.approach, ...(q.hints || [])].filter(Boolean).flatMap(texts);
+    for (const s of all) if (s.t !== 'code') assert.ok(!s.v.includes('`'), `${q.id}: a stray backtick in "${s.v.slice(0, 50)}"`);
+  }
+});
+
 test('P4 parseBlocks: paragraphs, bullet lists and fenced code', () => {
   const md = 'First para\nstill first.\n\n- one\n- two with `code`\n\n```sql\nSELECT 1\n\nFROM t\n```\n\nLast.';
   const b = W.parseBlocks(md);

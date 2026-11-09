@@ -188,6 +188,19 @@ async function computeExpected(src, runners, opts) {
 }
 
 /* ---------------------------------------------------------------- page output */
+// The sample tables on the page are for reading, so a DATE written with D('2020-03-01') shows as 2020-03-01.
+// (The SQL that really builds the table is in `setup`, built from the same rows.)
+function plainCell(v) {
+  if (v && typeof v === 'object' && !Array.isArray(v) && typeof v.sql === 'string') {
+    var m = /^DATE '(\d{4}-\d\d-\d\d)'$/.exec(v.sql);
+    return m ? m[1] : v.sql;
+  }
+  return v;
+}
+function displayTables(tables) {
+  return tables.map(function (t) { return Object.assign({}, t, { rows: (t.rows || []).map(function (r) { return r.map(plainCell); }) }); });
+}
+
 function toPage(full) {
   var fence = full.lang === 'sql' ? 'sql' : 'python';
   var page = {
@@ -211,7 +224,7 @@ function toPage(full) {
   page.cases = full.cases.map(function (c) {
     var o = {};
     if (c.setup) o.setup = c.setup;
-    if (c.tables && !c.hidden) o.tables = c.tables;
+    if (c.tables && !c.hidden) o.tables = displayTables(c.tables);
     if (c.args) o.args = c.args;
     if (c.ops) o.ops = c.ops;
     o.expected = c.expected;
@@ -262,6 +275,6 @@ async function main(argv) {
   } finally { sql.close(); await py.close(); }
 }
 
-module.exports = { tbl: tbl, D: D, para: para, lit: lit, setupOf: setupOf, validate: validate, validateAll: validateAll, computeExpected: computeExpected, toPage: toPage, render: render, loadProblems: loadProblems, main: main };
+module.exports = { tbl: tbl, D: D, plainCell: plainCell, para: para, lit: lit, setupOf: setupOf, validate: validate, validateAll: validateAll, computeExpected: computeExpected, toPage: toPage, render: render, loadProblems: loadProblems, main: main };
 
 if (require.main === module) main(process.argv.slice(2)).then(function (code) { process.exit(code); }, function (e) { console.error(e.stack || e); process.exit(1); });
