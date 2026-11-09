@@ -13,23 +13,38 @@ const all = B.loadProblems();
 const only = process.env.ONLY;
 const list = only ? all.filter((p) => p.id.includes(only)) : all;
 
-test('A1 the bank has the 24 questions this release promises', () => {
-  const sql = all.filter((p) => p.lang === 'sql').map((p) => p.day);
-  const py = all.filter((p) => p.lang === 'python').map((p) => p.day);
-  assert.deepEqual(sql, [1, 2, 3, 4, 5, 6, 8, 9, 10, 11, 12, 13]);
-  assert.deepEqual(py, [15, 15, 15, 16, 16, 16, 17, 17, 17, 18, 18, 18]);
-  assert.equal(all.length, 24);
+test('A1 the bank has a question for every LeetCode problem in the plan (69)', () => {
+  const sql = all.filter((p) => p.lang === 'sql');
+  const py = all.filter((p) => p.lang === 'python');
+  assert.equal(sql.length, 37);
+  assert.equal(py.length, 32);
+  assert.equal(all.length, 69);
+  // each question names the LeetCode problem it replaces, and no two share one
+  assert.equal(new Set(all.map((p) => p.lc)).size, 69);
 });
 
 test('A1 every source file passes validation', () => {
   assert.deepEqual(B.validateAll(all), []);
 });
 
-test('H3 bounties follow the XP rule: 20 for SQL practice reps, 10 for Python build problems', () => {
+test('H3 bounties follow the XP rule: 20 for a SQL rep or a later Python problem, 10 for a Python build problem, 0 with no checkbox', () => {
   for (const p of all) {
-    if (p.lang === 'sql') { assert.equal(p.cat, 'PRACTICE', p.id); assert.equal(p.bounty, 20, p.id); }
-    else { assert.equal(p.cat, 'BUILD', p.id); assert.equal(p.bounty, 10, p.id); }
+    if (p.bounty === 0) {
+      // only appears inside a checkbox that lists several problems: nothing to earn or lose
+      assert.equal(p.cat == null, true, p.id + ': bounty 0 means no category');
+    } else if (p.lang === 'sql') {
+      assert.equal(p.cat, 'PRACTICE', p.id);
+      assert.equal(p.bounty, 20, p.id);
+    } else if (p.day <= 20) {
+      assert.equal(p.cat, 'BUILD', p.id);
+      assert.equal(p.bounty, 10, p.id);
+    } else {
+      assert.equal(p.cat, 'PRACTICE', p.id);
+      assert.equal(p.bounty, 20, p.id);
+    }
   }
+  // exactly two questions have no checkbox of their own
+  assert.deepEqual(all.filter((p) => p.bounty === 0).map((p) => p.lc).sort(), ['account-balance', 'game-play-analysis-iii']);
 });
 
 test('H1 hints guide without pasting the answer', () => {
