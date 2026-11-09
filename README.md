@@ -102,8 +102,10 @@ the matching LeetCode page in a new tab, in case you want to compare.
   `150 / 170 XP (−10 hints)`. Once you solve a question every hint is free to read, and what you already
   paid stays paid.
 - **Submissions** are kept in this browser, the last 50 for each question. Click one to load its code.
-- **Solutions and discussion** need sign-in, so they stay off until the owner of the page connects a free
-  Supabase project (see [`supabase/README.md`](supabase/README.md)). Then learners sign in with GitHub,
+- **Sign-in, shared solutions and discussion** are optional and off by default. Without them the Discussion tab
+  is hidden, the Solutions tab shows the official approach, and your progress, hints and attempts stay in this
+  browser (use **EXPORT STATE** to move them to another one). The owner can switch them on later by connecting a
+  free Supabase project (see [`supabase/README.md`](supabase/README.md)). Then learners sign in with GitHub,
   share a solution with a short explanation, read the solutions of people who solved the question or opened
   its full approach, vote, reply in threads, hide a spoiler behind a click, report a comment, and keep their
   attempts and hint count on every device. A moderator can hide a post. Everything else on the page works

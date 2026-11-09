@@ -54,6 +54,7 @@ dialog.ws::backdrop{background:rgba(0,0,0,.5)}
 .ws-tabs{display:flex;flex-wrap:wrap;background:var(--paper2);border-bottom:2px solid var(--rule-hard);flex:none}
 .ws-tab{font-family:var(--mono);font-size:10px;letter-spacing:.12em;font-weight:700;cursor:pointer;background:transparent;color:var(--ink2);
   border:0;border-right:1px solid var(--rule);padding:12px 14px;line-height:1}
+.ws-tab[hidden]{display:none}
 .ws-tab:hover{color:var(--ink)}
 .ws-tab[aria-selected="true"]{background:var(--paper);color:var(--ink);box-shadow:inset 0 -3px 0 var(--color-today)}
 .ws-pane{flex:1 1 auto;overflow:auto;padding:16px 18px 28px;min-height:0;font-size:14px;line-height:1.55}

@@ -114,6 +114,12 @@
 
   /* ------------------------------------------------------------ the overlay */
   var TABS = [['desc', 'DESCRIPTION'], ['hints', 'HINTS'], ['solutions', 'SOLUTIONS'], ['discuss', 'DISCUSSION'], ['subs', 'SUBMISSIONS']];
+  // With no community project there is nothing to discuss, so the Discussion tab is not shown at all.
+  function tabsNow() { return TABS.filter(function (t) { return t[0] !== 'discuss' || community.enabled; }); }
+  function syncTabs() {
+    if (!els.tabs) return;
+    Array.prototype.forEach.call(els.tabs.children, function (b) { b.hidden = b.dataset.tab === 'discuss' && !community.enabled; });
+  }
 
   function build() {
     if (dlg) return;
@@ -127,10 +133,10 @@
         type: 'button', class: 'ws-tab', role: 'tab', 'data-tab': t[0], id: 'wsTab-' + t[0], 'aria-selected': 'false', 'aria-controls': 'wsPane',
         onclick: function () { selectTab(t[0]); },
         onkeydown: function (e) {
-          var i = TABS.findIndex(function (x) { return x[0] === t[0]; }), n = e.key === 'ArrowRight' ? i + 1 : e.key === 'ArrowLeft' ? i - 1 : null;
+          var list = tabsNow(), i = list.findIndex(function (x) { return x[0] === t[0]; }), n = e.key === 'ArrowRight' ? i + 1 : e.key === 'ArrowLeft' ? i - 1 : null;
           if (n == null) return;
           e.preventDefault();
-          var next = TABS[(n + TABS.length) % TABS.length][0];
+          var next = list[(n + list.length) % list.length][0];
           selectTab(next);
           els.tabs.querySelector('[data-tab="' + next + '"]').focus();
         },
@@ -216,6 +222,7 @@
     els.ed.value = WC.draftFor(ws(), p);
     els.ed.setAttribute('aria-label', 'Code editor, ' + (p.lang === 'sql' ? 'SQL' : 'Python'));
     clear(els.res).appendChild(h('div', { class: 'ws-busy-idle' }, 'RUN checks the samples. SUBMIT checks every test, saves the attempt, and ticks the box when it passes.'));
+    syncTabs();
     selectTab('desc');
     if (!was) { dlg.showModal(); shown = true; document.documentElement.classList.add('ws-open'); }
     try { els.ed.focus({ preventScroll: true }); } catch (e) { els.ed.focus(); }
@@ -405,7 +412,7 @@
       ? note('You solved this one, so every hint and the full approach are open and free.')
       : p.bounty === 0
         ? note('No XP is at stake on this one, so every hint is free. They still open in order.')
-        : note('Bounty ' + p.bounty + ' XP. Hints open in order, and each one takes XP off what this question earns' + (cost ? ' (so far ' + cost + ' XP)' : '') + '. The full approach costs whatever is left of the bounty and opens other learners’ solutions.', 'warn'));
+        : note('Bounty ' + p.bounty + ' XP. Hints open in order, and each one takes XP off what this question earns' + (cost ? ' (so far ' + cost + ' XP)' : '') + '. The full approach costs whatever is left of the bounty' + (community.enabled ? ' and opens other learners’ solutions.' : '.'), 'warn'));
     slots.forEach(function (s) {
       var head = h('div', { class: 'ws-hint-h' }, [h('span', null, s.label.toUpperCase()), h('span', null, s.state === 'open' ? 'OPEN' : s.state === 'next' ? 'NEXT' : 'LOCKED')]);
       var body = h('div', { class: 'ws-hint-b' });
@@ -522,8 +529,9 @@
     var p = cur.p, w = ws(), used = w.hints[p.id] || 0, solved = !!w.solved[p.id], my = tok;
     var out = [h('h3', null, 'Official approach')];
     if (WC.hintSlots(p, used, solved)[3].state === 'open') out = out.concat(blocks(p.approach, true));
-    else out.push(note('The full approach is hint 4. It costs ' + (WC.hintSlots(p, used, solved).filter(function (s) { return s.state === 'next'; })[0] ? 'the rest of the bounty' : 'XP') + ' and opens other learners’ solutions.', 'warn',
+    else out.push(note('The full approach is hint 4. It costs ' + (WC.hintSlots(p, used, solved).filter(function (s) { return s.state === 'next'; })[0] ? 'the rest of the bounty' : 'XP') + (community.enabled ? ' and opens other learners’ solutions.' : '.'), 'warn',
       h('button', { type: 'button', class: 'ws-btn small', onclick: function () { selectTab('hints'); } }, 'GO TO HINTS')));
+    if (!community.enabled) { setPane(out); return; }   // nothing else to show: no community project is set up
     out.push(h('h3', null, 'Solutions from other learners'));
     var box = h('div');
     out.push(box);
@@ -737,7 +745,7 @@
   function useCommunity(api) {
     var mine = community = api || defaultCommunity;
     me = null; userLoaded = true;
-    if (dlg) paintAuth();
+    if (dlg) { syncTabs(); paintAuth(); if (cur && cur.tab === 'discuss' && !mine.enabled) selectTab('desc'); }
     if (!mine.enabled) return Promise.resolve();
     mine.onAuth(function () { if (community === mine) refresh(); });
     return refresh();

@@ -57,8 +57,8 @@ test('workspace in a real browser', { timeout: 900000 }, async (t) => {
     await page.waitForSelector('#ws[open]');
     assert.equal(await page.evaluate(() => location.hash), '#p/' + SQL_ID);
     assert.equal(await page.innerText('#wsTitle'), SQLQ.title);
-    const tabs = await page.locator('#ws [role=tab]').evaluateAll((els) => els.map((e) => e.dataset.tab));
-    assert.deepEqual(tabs, ['desc', 'hints', 'solutions', 'discuss', 'subs']);
+    const tabs = await page.locator('#ws [role=tab]').evaluateAll((els) => els.filter((e) => !e.hidden).map((e) => e.dataset.tab));
+    assert.deepEqual(tabs, ['desc', 'hints', 'solutions', 'subs'], 'no Discussion tab until a community project is configured');
     assert.equal(await page.inputValue('#wsEditor'), SQLQ.starter);
     for (const id of ['#wsRun', '#wsSubmit', '#wsReset']) assert.equal(await page.locator(id).isVisible(), true, id);
     assert.match(await page.innerText('#wsBounty'), /20 XP/);
@@ -261,13 +261,21 @@ test('workspace in a real browser', { timeout: 900000 }, async (t) => {
   });
 
   /* ------------------------------------------------------------------ C1, C8 with no project */
-  await t.test('C8 with no project configured the community says so instead of failing', async () => {
+  await t.test('C8 with no project configured there is no sign-in, no Discussion tab and no "not set up" notes', async () => {
     await openQ('py-d16-valid-palindrome');
-    await tab('discuss');
-    assert.match(await paneText(), /not set up/i);
+    assert.equal(await page.locator('#ws [data-tab="discuss"]').isVisible(), false, 'the Discussion tab is hidden');
+    assert.equal(await page.locator('#ws [data-tab="solutions"]').isVisible(), true, 'the Solutions tab stays: it holds the official approach');
     await tab('solutions');
-    assert.match(await paneText(), /not set up/i);
+    const text = await paneText();
+    assert.match(text, /Official approach/);
+    assert.doesNotMatch(text, /not set up|other learners|sign in/i);
     assert.equal(await page.locator('#wsAuth button').count(), 0, 'no sign-in button without a project');
+    // arrow keys skip the hidden tab
+    await page.focus('#ws [data-tab="solutions"]');
+    await page.keyboard.press('ArrowRight');
+    assert.equal(await page.evaluate(() => document.activeElement.dataset.tab), 'subs');
+    await tab('hints');
+    assert.doesNotMatch(await paneText(), /other learners/i, 'the hints tab does not mention a community that is off');
     await closeQ();
   });
 
