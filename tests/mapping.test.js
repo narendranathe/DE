@@ -32,19 +32,21 @@ const items = (html) => [...html.matchAll(/<li class="check">([\s\S]*?)<\/li>/g)
 });
 const btn = (id) => new RegExp(`<button\\b[^>]*\\bdata-p="${id}"[^>]*>\\s*SOLVE HERE\\s*</button>`);
 
-test('A3 the bank has 24 questions with unique ids', () => {
-  assert.equal(PROBLEMS.length, 24);
-  assert.equal(new Set(PROBLEMS.map((p) => p.id)).size, 24);
+test('A3 the bank has 69 questions with unique ids', () => {
+  assert.equal(PROBLEMS.length, 69);
+  assert.equal(new Set(PROBLEMS.map((p) => p.id)).size, 69);
 });
 
-for (const p of PROBLEMS) {
+// A question with XP at stake has a checkbox of its own on its day. The two that only appear inside a checkbox
+// listing several problems (bounty 0) are covered by the W5 tests below.
+for (const p of PROBLEMS.filter((q) => q.bounty > 0)) {
   test(`W1 ${p.id}: "${p.anchor}" matches exactly one checkbox on day ${p.day}`, () => {
     const hits = items(card(p.day)).filter((it) => W.matchAnchor(it.text, p.anchor));
     assert.equal(hits.length, 1, `checkboxes whose link starts with "${p.anchor}" on day ${p.day}: ${hits.length}`);
     assert.match(hits[0].html, btn(p.id), 'the SOLVE HERE button sits in the same list item');
     const day = DAYS[p.day];
     assert.ok(day.cats[p.cat].includes(hits[0].key), `${hits[0].key} is in the ${p.cat} category of day ${p.day}`);
-    assert.deepEqual(day.probs.find((x) => x.id === p.id), { id: p.id, key: hits[0].key, cat: p.cat, bounty: p.bounty });
+    assert.deepEqual(day.probs.find((x) => x.id === p.id && !x.review), { id: p.id, key: hits[0].key, cat: p.cat, bounty: p.bounty });
     const inConsole = day.groups.filter((g) => btn(p.id).test(g.html));
     assert.equal(inConsole.length, 1, 'the TODAY console shows the button too');
     assert.equal(inConsole[0].k, p.cat);

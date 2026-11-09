@@ -1,0 +1,67 @@
+const { para } = require('../build_problems.js');
+
+module.exports = {
+  id: 'py-d69-rotting-oranges', day: 69, lc: 'rotting-oranges', anchor: 'LC 994', cat: 'PRACTICE', bounty: 20, lang: 'python',
+  title: 'Rotting Oranges', kind: 'func', fn: 'oranges_rotting', cmp: 'eq',
+  signature: 'def oranges_rotting(grid: list[list[int]]) -> int',
+  statement: para(
+    'A grid shows a crate of oranges. Each cell is `0` (empty), `1` (a fresh orange) or `2` (a rotten orange).',
+    'Every minute, each fresh orange that is **directly next to** a rotten one (up, down, left or right, not diagonal) becomes rotten. All of them change at the same time.',
+    'Return the **number of minutes** until no fresh orange is left. If some fresh orange can never rot, return `-1`. If there is no fresh orange at the start, the answer is `0`.'
+  ),
+  starter: 'def oranges_rotting(grid):\n    # Return the minutes until no fresh orange is left, or -1 if that never happens.\n    pass\n',
+  solution: [
+    'from collections import deque',
+    '',
+    'def oranges_rotting(grid):',
+    '    rows = len(grid)',
+    '    cols = len(grid[0]) if grid else 0',
+    '    queue, fresh = deque(), 0',
+    '    for r in range(rows):',
+    '        for c in range(cols):',
+    '            if grid[r][c] == 2:',
+    '                queue.append((r, c))          # every rotten orange starts the spread at minute 0',
+    '            elif grid[r][c] == 1:',
+    '                fresh += 1',
+    '    minutes = 0',
+    '    while queue and fresh:',
+    '        for _ in range(len(queue)):           # one full minute',
+    '            r, c = queue.popleft()',
+    '            for nr, nc in ((r + 1, c), (r - 1, c), (r, c + 1), (r, c - 1)):',
+    '                if 0 <= nr < rows and 0 <= nc < cols and grid[nr][nc] == 1:',
+    '                    grid[nr][nc] = 2',
+    '                    fresh -= 1',
+    '                    queue.append((nr, nc))',
+    '        minutes += 1',
+    '    return -1 if fresh else minutes',
+  ].join('\n') + '\n',
+  mutants: [
+    { name: 'lets rot spread diagonally', code: 'from collections import deque\n\ndef oranges_rotting(grid):\n    R, C = len(grid), len(grid[0]) if grid else 0\n    q, fresh = deque(), 0\n    for r in range(R):\n        for c in range(C):\n            if grid[r][c] == 2:\n                q.append((r, c))\n            elif grid[r][c] == 1:\n                fresh += 1\n    m = 0\n    while q and fresh:\n        for _ in range(len(q)):\n            r, c = q.popleft()\n            for dr in (-1, 0, 1):\n                for dc in (-1, 0, 1):\n                    nr, nc = r + dr, c + dc\n                    if 0 <= nr < R and 0 <= nc < C and grid[nr][nc] == 1:\n                        grid[nr][nc] = 2\n                        fresh -= 1\n                        q.append((nr, nc))\n        m += 1\n    return -1 if fresh else m\n' },
+    { name: 'counts one minute too many at the end', code: 'from collections import deque\n\ndef oranges_rotting(grid):\n    R, C = len(grid), len(grid[0]) if grid else 0\n    q, fresh = deque(), 0\n    for r in range(R):\n        for c in range(C):\n            if grid[r][c] == 2:\n                q.append((r, c))\n            elif grid[r][c] == 1:\n                fresh += 1\n    m = 0\n    while q:\n        for _ in range(len(q)):\n            r, c = q.popleft()\n            for nr, nc in ((r + 1, c), (r - 1, c), (r, c + 1), (r, c - 1)):\n                if 0 <= nr < R and 0 <= nc < C and grid[nr][nc] == 1:\n                    grid[nr][nc] = 2\n                    fresh -= 1\n                    q.append((nr, nc))\n        m += 1\n    return -1 if fresh else m\n' },
+    { name: 'never returns -1', code: 'from collections import deque\n\ndef oranges_rotting(grid):\n    R, C = len(grid), len(grid[0]) if grid else 0\n    q, fresh = deque(), 0\n    for r in range(R):\n        for c in range(C):\n            if grid[r][c] == 2:\n                q.append((r, c))\n            elif grid[r][c] == 1:\n                fresh += 1\n    m = 0\n    while q and fresh:\n        for _ in range(len(q)):\n            r, c = q.popleft()\n            for nr, nc in ((r + 1, c), (r - 1, c), (r, c + 1), (r, c - 1)):\n                if 0 <= nr < R and 0 <= nc < C and grid[nr][nc] == 1:\n                    grid[nr][nc] = 2\n                    fresh -= 1\n                    q.append((nr, nc))\n        m += 1\n    return m\n' },
+    { name: 'only the first rotten orange spreads rot', slipsPastSamples: true, code: 'from collections import deque\n\ndef oranges_rotting(grid):\n    R, C = len(grid), len(grid[0]) if grid else 0\n    q, fresh, first = deque(), 0, None\n    for r in range(R):\n        for c in range(C):\n            if grid[r][c] == 2 and first is None:\n                first = (r, c)\n                q.append((r, c))\n            elif grid[r][c] == 1:\n                fresh += 1\n    m = 0\n    while q and fresh:\n        for _ in range(len(q)):\n            r, c = q.popleft()\n            for nr, nc in ((r + 1, c), (r - 1, c), (r, c + 1), (r, c - 1)):\n                if 0 <= nr < R and 0 <= nc < C and grid[nr][nc] == 1:\n                    grid[nr][nc] = 2\n                    fresh -= 1\n                    q.append((nr, nc))\n        m += 1\n    return -1 if fresh else m\n' },
+  ],
+  hints: [
+    'Rot spreads one step in all four directions at the same moment. That is how a breadth-first search explores: all cells at distance 1, then all at distance 2.',
+    'Start the search from **every** rotten orange at once, not one by one. Put them all in the queue at the beginning. Each round of the queue is one minute.',
+    'Count the fresh oranges first and subtract one each time you rot one. When the queue is done, any fresh orange left means -1. Otherwise the answer is the number of rounds that actually rotted something.',
+  ],
+  approach: para(
+    '**Trigger:** "time for something to spread", "shortest distance from any of several sources". **Pattern:** **multi-source BFS**, processing the queue one full level at a time. **Complexity:** O(rows x cols).',
+    'Seeding the queue with all sources is the same as adding one imaginary source that touches all of them. It avoids running a BFS per rotten orange and taking a minimum.',
+    'Counting `fresh` solves two things. It tells you when to stop, so you do not count an extra empty minute, and it tells you at the end whether the answer is `-1`.',
+    'Stay with four directions. A diagonal neighbour is not adjacent in this question.'
+  ),
+  cases: [
+    { args: [[[2, 1, 0], [1, 1, 1], [0, 1, 1]]], expect: 4 },
+    { args: [[[2, 1, 0], [0, 0, 1]]], expect: -1 },
+    { args: [[[0, 2]]], expect: 0 },
+    { args: [[[1]]], hidden: true, expect: -1 },
+    { args: [[[0, 0], [0, 0]]], hidden: true, expect: 0 },
+    { args: [[[2, 2], [2, 2]]], hidden: true, expect: 0 },
+    { args: [[[2, 1, 1, 1, 2]]], hidden: true, expect: 2 },
+    { args: [[[1, 2]]], hidden: true, expect: 1 },
+    { args: [[[2], [1], [1], [1]]], hidden: true, expect: 3 },
+    { args: [[]], hidden: true, expect: 0 },
+  ],
+};
