@@ -171,7 +171,11 @@ Example: Day 2 practice rep, bounty 20. One hint costs 5, two cost 10, three cos
 | `votes` | person, target kind, target | the owner; counts are public |
 | `reports` | reporter, target, reason | moderators |
 
-All tables have row-level security on. The schema is `supabase/schema.sql`.
+All tables have row-level security on. The schema is `supabase/schema.sql`, and every object in it lives in its own
+Postgres schema, `de`. It does not touch `public`, other tables, or `auth.users`, so it can share a Supabase project
+with another app (test `schema.coexist.test.js`). A profile is made on first use by `de.ensure_profile()`, not by a
+sign-up trigger. The page selects the schema with `db: { schema: 'de' }`, and the owner adds `de` to Exposed schemas
+once.
 
 ## 8. Risks
 
@@ -189,9 +193,10 @@ All tables have row-level security on. The schema is `supabase/schema.sql`.
 | J3, J2 verdicts, H3, H5 | `judge.test.js` | pure functions, no browser |
 | J4, J6, A2 | `problems.test.js` | real DuckDB and real Python in Node, 69 questions |
 | C3, C4, C5, C7, S3 | `community.memory.test.js` | in-memory adapter with the same rules |
-| C1, C8, S3 | `community.supabase.test.js` | the same adapter code, sending its calls through a small stand-in for the Supabase client onto the real `schema.sql` in Postgres (PGlite) |
+| C1, C8, S1, S2, S3 | `community.supabase.test.js` | the same adapter code, sending its calls through a small stand-in for the Supabase client onto the real `schema.sql` in Postgres (PGlite) |
 | (both above) | `community.contract.js` | one list of 14 cases that both adapter suites run, so the two backends cannot drift apart |
 | C4, C6, C7, P1–P3 | `schema.rls.test.js` | the real SQL, in Postgres (PGlite), as anon and signed-in roles |
+| X1–X4 | `schema.coexist.test.js` | the schema installed twice next to a stand-in for another app (own `profiles`, own sign-up trigger, RLS tables, grants): nothing of theirs changes, no trigger on `auth.users`, profile made on first use |
 | H1–H6, S1, S3, W1 | `workspace.core.test.js` | pure rules: hint order and cost, draft and submission keeping, progress merge, safe text parsing |
 | A3, A4, W1, W4, W5 | `mapping.test.js` | built page: every question lands on its own checkbox, no LeetCode-first link left, review days, multi-problem boxes, script order, one self-contained file |
 | P4 and versions | `static.test.js` | no markup built from text; the engine versions agree everywhere |
@@ -207,9 +212,10 @@ short manual check for the owner to run once after setup.
 
 ## 10. Setup the owner does once (community only)
 
-1. Create a free Supabase project.
-2. Run `supabase/schema.sql` in the SQL editor.
-3. Create a GitHub OAuth app and enable the GitHub provider in Supabase Auth.
+1. Create a free Supabase project, or reuse one that already has an app (read the two cautions in `supabase/README.md`
+   first: the anon key becomes public, and learners become users of that project).
+2. Run `supabase/schema.sql` in the SQL editor, then add `de` to Exposed schemas in the API settings.
+3. Create a GitHub OAuth app and enable the GitHub provider in Supabase Auth, unless it is already on.
 4. Paste the project URL and anon key into `CONFIG_BLOCK` in `tools/render_site.py` and rebuild, or edit the
    `CONFIG` block at the top of `docs/index.html` directly. The Settings panel does not carry them.
 

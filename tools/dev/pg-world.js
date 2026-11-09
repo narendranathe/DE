@@ -46,7 +46,7 @@ function columns(table, spec) {
     if (m[1] !== 'profiles') throw new Error('only profiles can be embedded');
     const fk = table === 'reports' ? 'reporter_id' : 'user_id';
     const pairs = splitTop(m[2]).map((c) => `'${ident(c)}', e.${ident(c)}`).join(', ');
-    return `(select json_build_object(${pairs}) from public.profiles e where e.id = ${ident(table)}.${fk}) as profiles`;
+    return `(select json_build_object(${pairs}) from de.profiles e where e.id = ${ident(table)}.${fk}) as profiles`;
   }).join(', ');
 }
 
@@ -74,19 +74,19 @@ class Query {
     const keys = this.row ? Object.keys(this.row).map(ident) : [];
     let text;
     if (this.op === 'select') {
-      text = `select ${columns(this.t, this.cols)} from public.${this.t}${where}` +
+      text = `select ${columns(this.t, this.cols)} from de.${this.t}${where}` +
         (this.orders.length ? ' order by ' + this.orders.join(', ') : '') + (this.max ? ' limit ' + Number(this.max) : '');
     } else if (this.op === 'insert' || this.op === 'upsert') {
-      text = `insert into public.${this.t} (${keys.join(', ')}) values (${keys.map((k) => p(this.row[k])).join(', ')})`;
+      text = `insert into de.${this.t} (${keys.join(', ')}) values (${keys.map((k) => p(this.row[k])).join(', ')})`;
       if (this.op === 'upsert') {
         const target = this.conflict.split(',').map((c) => ident(c.trim())).join(', ');
         text += ` on conflict (${target}) do update set ${keys.map((k) => `${k} = excluded.${k}`).join(', ')}`;
       }
       text += returning;
     } else if (this.op === 'update') {
-      text = `update public.${this.t} set ${keys.map((k) => `${k} = ${p(this.row[k])}`).join(', ')}${where}${returning}`;
+      text = `update de.${this.t} set ${keys.map((k) => `${k} = ${p(this.row[k])}`).join(', ')}${where}${returning}`;
     } else {
-      text = `delete from public.${this.t}${where}${returning}`;
+      text = `delete from de.${this.t}${where}${returning}`;
     }
     return { text, params };
   }
@@ -123,6 +123,21 @@ function fakeClient(db, uid) {
       signOut: async () => ({ error: null }),
     },
     from: (table) => new Query(db, uid, table),
+    // like PostgREST: a function that returns one row comes back as one object, run as the signed-in role
+    rpc: async (name) => {
+      const id = uid();
+      try {
+        let rows;
+        await db.transaction(async (tx) => {
+          await tx.exec('set local role ' + (id ? 'authenticated' : 'anon'));
+          await tx.query("select set_config('request.jwt.claim.sub', $1, true)", [id || '']);
+          rows = (await tx.query(`select * from de.${ident(name)}()`)).rows;
+        });
+        return { data: rows.length === 1 ? rows[0] : rows, error: null };
+      } catch (e) {
+        return { data: null, error: { code: e.code, message: e.message } };
+      }
+    },
   };
 }
 
@@ -144,13 +159,14 @@ async function makeWorld() {
     ('${IDS.bob}', 'bob@example.com', '{"user_name":"bob","avatar_url":"https://avatars.example/bob.png"}'),
     ('${IDS.cy}', 'cy@example.com', '{"user_name":"cy"}'),
     ('${IDS.mod}', 'mod@example.com', '{"user_name":"mod"}')`);
-  await db.exec(`update public.profiles set role = 'moderator' where id = '${IDS.mod}'`);
+  // the profile of each person is made the first time the adapter asks for the signed-in user, like on the real page
+  await db.exec(`insert into de.profiles (id, handle, role) values ('${IDS.mod}', 'mod', 'moderator')`);
 
   const as = (name) => Community.create({ client: fakeClient(db, () => (name ? IDS[name] : null)) });
   return {
     alice: as('alice'), bob: as('bob'), cy: as('cy'), mod: as('mod'), anon: as(null),
     device: (name) => as(name),
-    reset: async () => { await db.exec('truncate public.reports, public.votes, public.comments, public.shared_solutions, public.submissions, public.progress cascade'); },
+    reset: async () => { await db.exec('truncate de.reports, de.votes, de.comments, de.shared_solutions, de.submissions, de.progress cascade'); },
     close: () => db.close(),
     db,
   };

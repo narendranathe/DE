@@ -20,6 +20,8 @@
   'use strict';
 
   var LIMITS = { comment: 4000, title: 120, explanation: 4000, code: 20000, reason: 500 };
+  // The tables live in their own schema, so the page can share a Supabase project with another app (supabase/schema.sql).
+  var SCHEMA = 'de';
   var SUPABASE_SRC = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js';
 
   function CommunityError(code, message) {
@@ -38,7 +40,7 @@
     if (c === '23514') return CommunityError('limit', 'That is too long, or out of range.');
     if (c === '23502' || c === '22P02') return CommunityError('invalid', 'Something required is missing.');
     if (c === '23505') return CommunityError('duplicate', 'Already done.');
-    if (c === 'PGRST301' || /JWT|not authenticated/i.test(msg)) return CommunityError('auth', 'Sign in with GitHub first.');
+    if (c === 'PGRST301' || c === '28000' || /JWT|not authenticated|not signed in/i.test(msg)) return CommunityError('auth', 'Sign in with GitHub first.');
     if (/fetch|network|load failed|timeout/i.test(msg)) return CommunityError('network', 'Could not reach the community service.');
     return CommunityError('error', msg);
   }
@@ -91,16 +93,26 @@
       if (!enabled) return Promise.reject(CommunityError('off', 'The community is not set up.'));
       if (!clientP) {
         clientP = opts.client ? Promise.resolve(opts.client) : loadSupabase().then(function (lib) {
-          return lib.createClient(opts.url, opts.key, { auth: { flowType: 'pkce', detectSessionInUrl: true, persistSession: true } });
+          return lib.createClient(opts.url, opts.key, { db: { schema: SCHEMA }, auth: { flowType: 'pkce', detectSessionInUrl: true, persistSession: true } });
         });
         clientP.catch(function () { clientP = null; });
       }
       return clientP;
     }
     async function session(c) { var r = await c.auth.getSession(); return r && r.data && r.data.session || null; }
+    // The profile is made on first use (de.ensure_profile), not by a sign-up trigger: the project may hold another app's users.
+    async function ensureMe(c, s) {
+      if (meCache && meCache.id === s.user.id) return meCache;
+      var p = ok(await c.rpc('ensure_profile'));
+      if (Array.isArray(p)) p = p[0];
+      if (!p) throw CommunityError('error', 'Could not set up your profile.');
+      meCache = { id: p.id, handle: p.handle, avatar: p.avatar_url, role: p.role };
+      return meCache;
+    }
     async function need() {
       var c = await client(), s = await session(c);
       if (!s) throw CommunityError('auth', 'Sign in with GitHub first.');
+      await ensureMe(c, s);
       return { c: c, uid: s.user.id };
     }
     function ok(res) { if (res && res.error) throw mapError(res.error); return res ? res.data : null; }
@@ -122,10 +134,7 @@
           if (!enabled) return null;
           var c = await client(), s = await session(c);
           if (!s) { meCache = null; return null; }
-          if (meCache && meCache.id === s.user.id) return meCache;
-          var p = ok(await c.from('profiles').select('id, handle, avatar_url, role').eq('id', s.user.id).single());
-          meCache = { id: p.id, handle: p.handle, avatar: p.avatar_url, role: p.role };
-          return meCache;
+          return await ensureMe(c, s);
         });
       },
       onAuth: function (cb) {
