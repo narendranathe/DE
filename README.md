@@ -19,6 +19,7 @@ to your browser.
 | **Ritual** | The nine steps every card follows, and what each costs in minutes |
 | **XP & rewards** | Live per-category scoring, streak, milestone rewards you fill in |
 | **Resources · Cheat sheets** | Every link from the plan; Python, SQL, complexity, HLD, LLD, frameworks |
+| **Playground** | Python and SQL that run in the browser. Free, no sign-in, nothing to install |
 | **All 84 days** | Every card in full |
 | **State** | Export / import your progress as JSON |
 
@@ -54,6 +55,23 @@ Every day has the same shape and the same budget:
 re-test on Day 7. Every seventh day is a boss day that sweeps the whole week. A file you keep called
 `error-log.md` holds every miss with a one-line correction; it is your own review list, and the
 practice slot revisits the same patterns.
+
+## The playground
+
+The page has a code box that runs Python and SQL with no server and no account. Use it to try an
+idea in a minute, then do the real build in your repo.
+
+- **Python** runs in your browser through Pyodide (CPython compiled to WebAssembly). It handles the
+  standard library, `pydantic`, `pytest`, `numpy`, `pandas`, `sqlite3` and most popular packages, which load by name
+  when you import them. A `# pip: name` line at the top installs a pure-Python package from PyPI.
+  **STOP** ends a runaway loop without freezing the page.
+- **SQL** runs in DuckDB (also WebAssembly), the same engine as the sql-lab repo, so `QUALIFY`,
+  `MERGE INTO`, window frames and `EXPLAIN ANALYZE` work. **LOAD SAMPLE WAREHOUSE** builds five small tables
+  with planted duplicates, NULLs and orphan keys for the Week 1 queries.
+- Every Python and SQL code block in the day cards and cheat sheets has a **TRY IN PLAYGROUND** button.
+- The first run of each language downloads about 10 MB from a public CDN (jsDelivr), then your browser
+  caches it. Your code is saved in this browser only. Python in it cannot make ordinary web requests, use
+  `input()`, or read your local files, and it cannot run Spark, Airflow or dbt.
 
 ## Making it yours
 

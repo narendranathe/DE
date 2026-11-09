@@ -5,6 +5,8 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 PLAN = json.loads(open(os.path.join(HERE, 'assets', 'plan.js')).read()
                   .split('=', 1)[1].rstrip().rstrip(';'))
 OUT = os.path.join(HERE, '..', 'docs', 'index.html')
+PG_CSS = open(os.path.join(HERE, 'assets', 'playground.css')).read()
+PG_JS = open(os.path.join(HERE, 'assets', 'playground.js')).read()
 
 DONE_THRU, TODAY = 0, 1          # ships blank: a new reader starts at Day 1
 TOTAL = 84
@@ -198,10 +200,66 @@ def console_panel():
     <div class="con-groups" id="conGroups"></div>
     <div class="con-foot mono">
       <a id="conOpen" href="#d1">OPEN THE FULL CARD IN THE LOG ↓</a>
+      <a href="#playground">TRY CODE IN THE PLAYGROUND ↓</a>
       <span class="con-kbd">← → TO MOVE BETWEEN DAYS</span>
     </div>
   </div>
 </section>'''
+
+
+def playground_panel():
+    return """
+<section id="playground" class="sec">
+  <h2 class="sec-h"><span class="sec-n mono">07</span> PLAYGROUND</h2>
+  <div class="sec-sub mono">PYTHON AND SQL / FREE / RUNS IN YOUR BROWSER / NO SIGN-IN, NO SERVER</div>
+  <div class="pg" id="pg">
+    <div class="pg-bar">
+      <div class="pg-tabs" role="tablist" aria-label="Language">
+        <button type="button" class="pg-tab" id="pgTabPy" role="tab" aria-selected="true">PYTHON</button>
+        <button type="button" class="pg-tab" id="pgTabSql" role="tab" aria-selected="false">SQL</button>
+      </div>
+      <div class="pg-tools">
+        <select id="pgEx" class="mono" aria-label="Load an example"></select>
+        <button type="button" class="pg-btn" id="pgSeed" hidden title="Create customers, orders, order_items, events and activity">LOAD SAMPLE WAREHOUSE</button>
+        <button type="button" class="pg-btn" id="pgTables" hidden>SHOW TABLES</button>
+        <button type="button" class="pg-btn" id="pgStop" hidden>RESET PYTHON</button>
+        <button type="button" class="pg-btn run" id="pgRun" title="Ctrl or Cmd + Enter">&#9654; RUN</button>
+      </div>
+    </div>
+    <textarea id="pgEd" spellcheck="false" autocapitalize="off" autocomplete="off" autocorrect="off"
+      aria-label="Code editor"></textarea>
+    <div class="pg-status mono" id="pgStatus" role="status" aria-live="polite"></div>
+    <div class="pg-out" id="pgOut" aria-live="polite"></div>
+    <div class="pg-foot mono">
+      <span>CTRL / &#8984; + ENTER RUNS <span class="sep">/</span> ESC THEN TAB LEAVES THE EDITOR</span>
+      <button type="button" id="pgClear">CLEAR OUTPUT</button>
+    </div>
+  </div>
+  <details class="pg-notes">
+    <summary>HOW IT WORKS, AND WHAT IT CANNOT DO</summary>
+    <div class="pg-notes-b">
+      <ul>
+        <li><b>Python</b> is CPython compiled to WebAssembly (Pyodide). It starts the first time you press RUN, in a
+          background worker, so <b>RESET PYTHON</b> or <b>STOP</b> ends a runaway loop without freezing the page.
+          Variables stay between runs until you reset. Top-level <code>await</code> works.</li>
+        <li><b>Packages:</b> the standard library, <code>pydantic</code>, <code>pytest</code>, <code>numpy</code>,
+          <code>pandas</code>, <code>sqlite3</code> and most other popular libraries load by name when you import them.
+          For a pure-Python package from PyPI, put <code># pip: name</code> on the first line.</li>
+        <li><b>SQL</b> is DuckDB, also compiled to WebAssembly. It matches the DuckDB used in the sql-lab repo, so
+          <code>QUALIFY</code>, window frames, <code>generate_series</code> and <code>EXPLAIN ANALYZE</code> work.
+          <b>LOAD SAMPLE WAREHOUSE</b> builds five small tables with planted problems: duplicates, NULLs and orphan keys.
+          The data lives in memory and is gone when you reload.</li>
+        <li><b>Not here:</b> <code>requests</code> and <code>urllib</code> calls (a browser has no raw sockets),
+          <code>input()</code>, threads, subprocesses, your local files, Spark, Airflow and dbt. Do the real build in
+          your repo; use this to try an idea in one minute.</li>
+        <li><b>Download:</b> each runtime is roughly 10 MB the first time, from a public CDN
+          (jsDelivr), then your browser caches it. Your code stays in this browser only.</li>
+        <li><b>Try it from a card:</b> every Python and SQL code block in the day cards and cheat sheets has a
+          <b>TRY IN PLAYGROUND</b> button that copies it into the editor.</li>
+      </ul>
+    </div>
+  </details>
+</section>"""
 
 
 def program_arc():
@@ -220,7 +278,7 @@ def program_arc():
         f'<div class="pa-t">{t}</div><div class="pa-d">{d}</div></div>' for w, t, d in arc)
     return f'''
 <section id="arc" class="sec">
-  <h2 class="sec-h"><span class="sec-n mono">08</span> THE WHOLE ARC</h2>
+  <h2 class="sec-h"><span class="sec-n mono">09</span> THE WHOLE ARC</h2>
   <div class="sec-sub mono">TWELVE WEEKS END TO END <span class="sep">/</span>
     SIX PUBLIC REPOS <span class="sep">/</span> ONE STANDOUT CAPSTONE</div>
   <div class="pa-grid">{cells}</div>
@@ -233,7 +291,7 @@ def program_arc():
 def backup_panel():
     return '''
 <section id="backup" class="sec">
-  <h2 class="sec-h"><span class="sec-n mono">09</span> STATE</h2>
+  <h2 class="sec-h"><span class="sec-n mono">10</span> STATE</h2>
   <div class="sec-sub mono">PROGRESS LIVES IN THIS BROWSER / EXPORT BEFORE A REDEPLOY</div>
   <div class="backup">
     <div class="bk-row">
@@ -275,8 +333,8 @@ def masthead():
 
 def jumpstrip():
     items = [('#status', 'STATUS'), ('#position', 'THE 84'), ('#weeks', 'WEEKS'),
-             ('#ritual', 'RITUAL'), ('#xp', 'XP &amp; REWARDS'), ('#resources', 'RESOURCES'),
-             ('#cheats', 'CHEAT SHEETS'), ('#days', 'ALL 84 DAYS'), ('#arc', 'THE ARC'),
+             ('#ritual', 'RITUAL'), ('#xp', 'XP'), ('#resources', 'RESOURCES'),
+             ('#cheats', 'CHEATS'), ('#playground', 'PLAYGROUND'), ('#days', 'ALL 84 DAYS'), ('#arc', 'THE ARC'),
              ('#backup', 'STATE')]
     items = [('#today', 'TODAY')] + items
     tabs = ''.join(f'<a class="jt" href="{h}">{t}</a>' for h, t in items)
@@ -644,7 +702,7 @@ def all_days():
     </div>'''
     return f'''
 <section id="days" class="sec">
-  <h2 class="sec-h"><span class="sec-n mono">07</span> ALL 84 DAYS</h2>
+  <h2 class="sec-h"><span class="sec-n mono">08</span> ALL 84 DAYS</h2>
   <div class="sec-sub mono">EVERY CARD IN FULL <span class="sep">/</span> OPEN ANY DAY</div>
   {out}
 </section>'''
@@ -787,7 +845,7 @@ h1,h2,h3,h4{margin:0;text-wrap:balance}
 .jumpstrip{position:sticky;top:0;z-index:30;background:var(--chrome);display:flex;
   overflow-x:auto;white-space:nowrap;scrollbar-width:none}
 .jumpstrip::-webkit-scrollbar{display:none}
-.jt{padding:11px 17px;font-size:10.5px;letter-spacing:.13em;color:#b6b3ab;text-decoration:none;
+.jt{padding:11px 13px;font-size:10.5px;letter-spacing:.13em;color:#b6b3ab;text-decoration:none;
   border-right:1px solid #2c2f36;flex-shrink:0}
 .jt:hover{background:#2c3037;color:#fff}
 
@@ -2081,7 +2139,7 @@ def build():
                             'EVERY LINK FROM THE PLAN / GROUPED BY HOW YOU USE IT'),
         'cheats': collapsibles(PLAN['cheats'], 'cheats', '06', 'CHEAT SHEETS',
                                'SKIM BEFORE THE CARD / THEY FEED THE REVIEW LOOP'),
-        'days': all_days(), 'arc': program_arc(), 'backup': backup_panel(),
+        'play': playground_panel(), 'days': all_days(), 'arc': program_arc(), 'backup': backup_panel(),
     }
     data = json.dumps(DAYDATA, ensure_ascii=False, separators=(',', ':'))
     doc = f"""<!doctype html>
@@ -2097,7 +2155,7 @@ def build():
 <link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=IBM+Plex+Mono:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%2316181c'/><text x='50' y='72' font-size='62' font-family='monospace' font-weight='bold' fill='%23c8341f' text-anchor='middle'>8</text></svg>">
 <script>{CONFIG_BLOCK}</script>
-<style>{CSS}</style>
+<style>{CSS}{PG_CSS}</style>
 <script>{BOOT_THEME}</script>
 </head>
 <body>
@@ -2111,6 +2169,7 @@ def build():
 {parts['xp']}
 {parts['res']}
 {parts['cheats']}
+{parts['play']}
 {parts['days']}
 {parts['arc']}
 {parts['backup']}
@@ -2149,6 +2208,7 @@ def build():
 </footer>
 <script>window.DAYS={data};</script>
 <script>{JS}</script>
+<script>{PG_JS}</script>
 </body>
 </html>"""
     open(OUT, 'w').write(doc)

@@ -15,6 +15,7 @@ Then commit `docs/index.html`. GitHub Pages serves it directly — no CI step.
 | `generalized.md` | The program content: 12 weeks, 84 two-hour day-cards, cheat sheets, resources |
 | `parse_plan.py` | Markdown → structured JSON (`assets/plan.js`) |
 | `render_site.py` | The page itself — all HTML, CSS and JS live here |
+| `assets/playground.js`, `assets/playground.css` | The Python and SQL playground; `render_site.py` inlines both into the page |
 | `generalize.py` | The de-personalisation rules (see below) |
 | `sweep.py` | Audits the built page for personalisation leaks, by day and section |
 
@@ -36,6 +37,23 @@ review lines on the days that point at it. Each reward line states the day's XP 
 `render_site.py` holds the whole front end: `CSS` for styling, `JS` for behaviour, and one
 function per section. The semantic colour palette is six CSS variables at the top of `CSS`;
 `CONFIG_BLOCK` is the six user-editable settings that ship at the top of the page.
+
+## Editing the playground
+
+`assets/playground.js` holds the editor, the example lists and the two runtimes. The versions are
+two constants at the top, `PY_VER` (Pyodide) and `DUCK_VER` (DuckDB-WASM). Both load from jsDelivr
+the first time someone presses RUN, so nothing is bundled into the page.
+
+- Pyodide 314 only runs in a **module** worker and is imported from `pyodide.mjs`. A classic
+  `importScripts` worker throws "Classic web workers are not supported". The worker starts from a
+  Blob URL and falls back to a `data:` URL, because Chrome blocks Blob module workers on `file://` pages.
+- DuckDB's own worker is a classic one, started through a Blob that calls `importScripts`.
+- Before bumping a version, check that the new Pyodide has `pyodide.mjs` and `pydantic` and `pytest`
+  in its lock file, and that every example still runs. The `Day N` labels on the examples should
+  match the syllabus; they are plain strings in `EX`.
+- Test without internet by serving jsDelivr paths from local copies, for example a small HTTPS server
+  plus `--host-resolver-rules=MAP cdn.jsdelivr.net 127.0.0.1` in Chromium. Playwright's `page.route`
+  does not reliably serve `importScripts` from a worker.
 
 ## generalize.py
 
