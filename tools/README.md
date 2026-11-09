@@ -12,7 +12,7 @@ Then commit `docs/index.html`. GitHub Pages serves it directly — no CI step.
 
 | File | Role |
 |---|---|
-| `generalized.md` | The program content: 12 weeks, 84 day-cards, cheat sheets, resources |
+| `generalized.md` | The program content: 12 weeks, 84 two-hour day-cards, cheat sheets, resources |
 | `parse_plan.py` | Markdown → structured JSON (`assets/plan.js`) |
 | `render_site.py` | The page itself — all HTML, CSS and JS live here |
 | `generalize.py` | The de-personalisation rules (see below) |
@@ -21,9 +21,15 @@ Then commit `docs/index.html`. GitHub Pages serves it directly — no CI step.
 ## Editing content
 
 Edit `generalized.md`, then re-run the two commands. Day cards follow a fixed shape —
-`## Day N — Title`, a `🎯 Cutoff target` blockquote, then bolded sections for concept,
-alternatives, roadblock, read, build, SQL reps, done-when and recall. The parser keys off
-those markers, so keep them.
+`## Day N — Title 🎮 Level N` (or `🎮 Boss Level`), a `🎯 Cutoff target` blockquote, then bolded
+sections for review, concept, alternatives, roadblock, key ideas, read, build, practice reps,
+done-when, reward and recall. The parser keys off those lead-ins, so keep them, and do not start
+a body line with a bold phrase or it becomes a new section.
+
+Review blocks are written by hand into each card, one question per earlier day at gaps of 1, 3, 7,
+14 and 30 days, taken from that day's recall questions. If you move, add or reword a day, update the
+review lines on the days that point at it. Each reward line states the day's XP ceiling
+(`= **170 XP**`, or 140 on days with no reading); the page trusts that number.
 
 ## Editing the page
 

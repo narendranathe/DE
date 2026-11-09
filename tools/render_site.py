@@ -10,53 +10,54 @@ DONE_THRU, TODAY = 0, 1          # ships blank: a new reader starts at Day 1
 TOTAL = 84
 
 THEMES = {
-    1:  ('PRODUCTION PYTHON',        'Sentinel-Lite'),
-    2:  ('TESTS · ASYNC · RESILIENCE','Sentinel-Lite'),
-    3:  ('DSA PATTERN RECOGNITION',  'drills'),
-    4:  ('LAKEHOUSE FOUNDATIONS',    'iceberg-lakehouse-lab'),
-    5:  ('SPARK · DBT · GOVERNANCE', 'iceberg-lakehouse-lab'),
-    6:  ('DISTRIBUTED SYSTEMS',      'theory + drills'),
-    7:  ('RAG · VECTOR · EVAL',      'rag-eval-service'),
-    8:  ('LLMOPS · AGENTS',          'ai-serving-platform'),
-    9:  ('CAPSTONE PT.1 — THE SLICE','ai-ready-lakehouse'),
-    10: ('CAPSTONE PT.2 — HARDEN',   'ai-ready-lakehouse'),
-    11: ('CAPSTONE PT.3 — SELF-HEAL','ai-ready-lakehouse'),
-    12: ('MOCKS · OUTREACH',         'convert'),
+    1:  ('SQL · DATA MODELING',      'sql-lab'),
+    2:  ('PRODUCTION PYTHON',        'Sentinel-Lite'),
+    3:  ('DSA PATTERNS',             'drills'),
+    4:  ('LAKEHOUSE · SPARK',        'iceberg-lakehouse-lab'),
+    5:  ('DBT · AIRFLOW · GOVERN',   'iceberg-lakehouse-lab'),
+    6:  ('DATA SYSTEM DESIGN',       'designs'),
+    7:  ('LLM FUNDAMENTALS',         'llm-lab'),
+    8:  ('RAG · EVALS',              'rag-eval-service'),
+    9:  ('AGENTS · LLMOPS · COST',   'llm-lab'),
+    10: ('CAPSTONE PT.1 — THE SLICE','ai-ready-lakehouse'),
+    11: ('CAPSTONE PT.2 — SHIP',     'ai-ready-lakehouse'),
+    12: ('MOCKS · CONVERSION',       'convert'),
 }
 
-ARC = [('W1–2',  'Sentinel-Lite',        'reconciliation service — typed, tested, resilient', 'today'),
-       ('W4–5',  'iceberg-lakehouse-lab','CDC → Iceberg, Spark + dbt on top',                'next'),
-       ('W7',    'rag-eval-service',     'retrieval with an eval gate that blocks deploys',  'next'),
-       ('W8',    'ai-serving-platform',  'registry, drift, tracing, one agent',              'next'),
-       ('W9–11', 'ai-ready-lakehouse',   'the capstone — all of it, self-healing',           'next')]
+ARC = [('W1–2',  'sql-lab + Sentinel-Lite', 'a SQL warehouse, then a typed, tested service',  'today'),
+       ('W4–5',  'iceberg-lakehouse-lab',   'CDC → Iceberg, with Spark, dbt and Airflow on top', 'next'),
+       ('W7',    'llm-lab',                 'a tested LLM feature behind an API contract',       'next'),
+       ('W8',    'rag-eval-service',        'retrieval with an eval gate that blocks deploys',   'next'),
+       ('W10–11','ai-ready-lakehouse',      'the capstone: all of it, self-healing',             'next')]
 
 # the fixed ritual, in order; each day's blocks are sorted onto these slots
 RITUAL = [
+    ('REVIEW',       '15 min &middot; old material, from memory'),
     ('CONCEPT',      'what &amp; why engineers use it'),
     ('ALTERNATIVES', 'and when to pick each'),
-    ('ROADBLOCK',    'the wall everyone hits'),
-    ('FIX',          'what the field settled on'),
-    ('READ',         'source + what to extract'),
-    ('BUILD &amp; SAVE', 'the real test — git commit = checkpoint'),
-    ('SQL REPS',     'keep the query muscle warm'),
+    ('ROADBLOCK → FIX', 'the wall everyone hits, and the fix'),
+    ('READ',         'two sources &middot; with the concept, a 20-min learn block'),
+    ('BUILD &amp; SAVE', '55 min &middot; the real test, git commit = checkpoint'),
+    ('PRACTICE',     '15 min &middot; one timed SQL or algorithm rep'),
     ('DONE WHEN',    'the cutoff checklist'),
-    ('RECALL',       'boss check, book closed'),
+    ('RECALL',       '15 min &middot; boss check, book closed'),
 ]
 
 SLOT = [
+    (r'^review',                                     'REVIEW'),
     (r'roadblock',                                   'ROADBLOCK → FIX'),
     (r'alternativ|when to pick|how to identify',     'ALTERNATIVES'),
     (r'^the concept|^what the pattern|^what you|^why today|^the week', 'CONCEPT'),
     (r'^read',                                       'READ'),
     (r'build|solve &amp; narrate|solve & narrate|do &amp; log|do & log|the arena', 'BUILD & SAVE'),
-    (r'^sql reps',                                   'SQL REPS'),
+    (r'^practice reps',                              'PRACTICE'),
     (r'^done when',                                  'DONE WHEN'),
     (r'^recall',                                     'RECALL'),
     (r'^reward',                                     'REWARD'),
     (r'key ideas|hints|sql bridge|thought process',  'NOTES'),
 ]
-ORDER = ['CONCEPT', 'ALTERNATIVES', 'ROADBLOCK → FIX', 'NOTES', 'READ',
-         'BUILD & SAVE', 'SQL REPS', 'DONE WHEN', 'RECALL', 'REWARD']
+ORDER = ['REVIEW', 'CONCEPT', 'ALTERNATIVES', 'ROADBLOCK → FIX', 'NOTES', 'READ',
+         'BUILD & SAVE', 'PRACTICE', 'DONE WHEN', 'RECALL', 'REWARD']
 
 def slot_of(label):
     l = (label or '').lower()
@@ -65,12 +66,13 @@ def slot_of(label):
             return name
     return 'NOTES'
 
-CATS = [(r'^sql reps|sql bridge', 'SQL'),
+CATS = [(r'^review', 'REVIEW'),
+        (r'^practice reps', 'PRACTICE'),
         (r'^recall', 'RECALL'),
         (r'^read', 'READ'),
         (r'^done when|build|solve|do &amp; log|do & log|the arena', 'BUILD')]
 
-CAT_XP = {'READ': 30, 'BUILD': 50, 'SQL': 20, 'RECALL': 25}
+CAT_XP = {'REVIEW': 20, 'READ': 30, 'BUILD': 50, 'PRACTICE': 20, 'RECALL': 25}
 BONUS = 25
 
 def cat_of(label):
@@ -94,6 +96,27 @@ def stated_max(sections):
             if m:
                 return int(m.group(1))
     return None
+
+
+def day_of(n):
+    for w in PLAN['weeks']:
+        for d in w['days']:
+            if d['day'] == n:
+                return d
+    raise KeyError(n)
+
+
+def wk_of(n):
+    return (n - 1) // 7 + 1
+
+
+def total_checks():
+    t = 0
+    for w in PLAN['weeks']:
+        for d in w['days']:
+            t += d['checkCount']
+            t += any((sec['label'] or '').lower().startswith('read') for sec in d['sections'])
+    return t
 
 
 def status_of(n):
@@ -169,12 +192,12 @@ def console_panel():
       <div class="t-b prose" id="conTarget"></div></div>
     <div class="con-xp">
       <div class="con-rail"><i id="conRail"></i></div>
-      <div class="con-xp-t mono"><span id="conXp">0 / 150 XP</span>
-        <span class="sep">/</span><span id="conChecks">0 OF 7 TICKED</span></div>
+      <div class="con-xp-t mono"><span id="conXp">0 / 170 XP</span>
+        <span class="sep">/</span><span id="conChecks">0 TICKED</span></div>
     </div>
     <div class="con-groups" id="conGroups"></div>
     <div class="con-foot mono">
-      <a id="conOpen" href="#d8">OPEN THE FULL CARD IN THE LOG ↓</a>
+      <a id="conOpen" href="#d1">OPEN THE FULL CARD IN THE LOG ↓</a>
       <span class="con-kbd">← → TO MOVE BETWEEN DAYS</span>
     </div>
   </div>
@@ -182,15 +205,16 @@ def console_panel():
 
 
 def program_arc():
-    arc = [('W1\u20132', 'Production Python', 'typed, tested, resilient, observable'),
-           ('W3', 'DSA pattern recognition', 'constraints \u2192 pattern \u2192 solution'),
-           ('W4', 'Iceberg lakehouse', 'table formats, ACID, time travel, CDC'),
-           ('W5', 'Spark \u00b7 dbt \u00b7 governance', 'the processing and modelling layer'),
-           ('W6', 'Distributed systems', 'the vocabulary that separates senior from mid'),
-           ('W7', 'RAG + evaluation', 'retrieval you can actually measure'),
-           ('W8', 'LLMOps + agents', 'registry, drift, tracing, guardrails'),
-           ('W9\u201311', 'The capstone', 'an AI-ready lakehouse that heals itself'),
-           ('W12', 'Mocks + outreach', 'convert the build into interviews')]
+    arc = [('W1', 'SQL + data modeling', 'the most-tested skill goes first'),
+           ('W2', 'Production Python', 'typed, tested, resilient, observable'),
+           ('W3', 'DSA patterns', 'trigger \u2192 pattern \u2192 complexity'),
+           ('W4\u20135', 'Lakehouse, Spark, dbt', 'table formats, CDC, Airflow, governance'),
+           ('W6', 'Data system design', 'consistency, partitioning, delivery, failure'),
+           ('W7', 'LLM fundamentals', 'tokens, attention, API contracts'),
+           ('W8', 'RAG + evals', 'retrieval and answers you can measure'),
+           ('W9', 'Agents + LLMOps', 'tracing, guardrails, cost, drift'),
+           ('W10\u201311', 'The capstone', 'an AI-ready lakehouse that heals itself'),
+           ('W12', 'Mocks + conversion', 'turn the build into interviews')]
     cells = ''.join(
         f'<div class="pa-cell"><div class="pa-w mono">{w}</div>'
         f'<div class="pa-t">{t}</div><div class="pa-d">{d}</div></div>' for w, t, d in arc)
@@ -198,10 +222,10 @@ def program_arc():
 <section id="arc" class="sec">
   <h2 class="sec-h"><span class="sec-n mono">08</span> THE WHOLE ARC</h2>
   <div class="sec-sub mono">TWELVE WEEKS END TO END <span class="sep">/</span>
-    FIVE SHIPPED REPOS <span class="sep">/</span> ONE STANDOUT CAPSTONE</div>
+    SIX PUBLIC REPOS <span class="sep">/</span> ONE STANDOUT CAPSTONE</div>
   <div class="pa-grid">{cells}</div>
-  <p class="pa-note">Finish it and you have five public repos, a capstone that runs end to end,
-    and pattern recognition at reflex speed \u2014 whatever background you started from. What the
+  <p class="pa-note">Finish it and you have six public repos, a capstone that runs end to end,
+    and a review habit that keeps all of it retrievable \u2014 whatever background you started from. What the
     portfolio says about you is yours to frame; the build stands on its own.</p>
 </section>'''
 
@@ -235,15 +259,15 @@ def masthead():
   <div class="mh-l">
     <div class="kicker" id="mhKicker">DAILY EXECUTOR <span class="sep">/</span> 12-WEEK ENGINEERING PROGRAM</div>
     <h1 id="mhTitle">AI + Data + Lakehouse Engineer</h1>
-    <p class="mission">One page. Open it, find today, do the card, tick the boxes. Every day teaches
-      the topic before it tests you — what it is and why engineers use it, the alternatives, the classic
-      roadblock and its fix — then makes you build it. A git commit is the checkpoint; the recall check,
-      book closed, is the boss. From wherever you are now to a shipped portfolio.</p>
+    <p class="mission">One page. Open it, find today, do the card, tick the boxes. Every day is two
+      hours: a 15-minute review of older material from memory, one concept taught before it tests you,
+      a build, one timed practice rep and a closed-book recall. A git commit is the checkpoint. The
+      review loop is what keeps week 1 in your head in week 12.</p>
     <div class="mh-role mono" id="mhRole"></div>
   </div>
   <div class="mh-r mono">
     <div class="mh-now">DAY {TODAY} / {TOTAL}</div>
-    <div class="mh-sub">WEEK 2 &middot; PRODUCTION PYTHON PT.2</div>
+    <div class="mh-sub">WEEK {wk_of(TODAY)} &middot; {THEMES[wk_of(TODAY)][0]}</div>
     <div class="mh-sub" id="mhStreak">STREAK {DONE_THRU} \U0001f525</div>
   </div>
 </header>'''
@@ -256,9 +280,9 @@ def jumpstrip():
              ('#backup', 'STATE')]
     items = [('#today', 'TODAY')] + items
     tabs = ''.join(f'<a class="jt" href="{h}">{t}</a>' for h, t in items)
-    live = ('<div class="jt-live mono"><span id="liveDay">DAY 8</span>'
-            '<span class="sep">/</span><span id="liveXp">1,050 XP</span>'
-            '<span class="sep">/</span><span id="liveStreak">7 \U0001f525</span></div>')
+    live = ('<div class="jt-live mono"><span id="liveDay">DAY 1</span>'
+            '<span class="sep">/</span><span id="liveXp">0 XP</span>'
+            '<span class="sep">/</span><span id="liveStreak">0 \U0001f525</span></div>')
     toggle = ('<button type="button" class="jt-theme mono" id="themeBtn" aria-pressed="false">'
               '<span class="tg-g">\u25d0</span><span id="themeLbl">DARK</span></button>'
               '<button type="button" class="jt-theme jt-gear" id="gearBtn" '
@@ -283,8 +307,8 @@ def stats():
       <i style="width:{d / TOTAL * 100:.4f}%"></i><b style="left:{TODAY / TOTAL * 100:.4f}%"></b>
     </div>
     <div class="prog-meta mono"><b>{pct}% OF PROGRAM COMPLETE</b> <span class="sep">/</span>
-      {DONE_THRU} OF {TOTAL} DAYS <span class="sep">/</span> 50 OF 482 CHECKS
-      <span class="sep">/</span> 1,050 XP BANKED</div>
+      {DONE_THRU} OF {TOTAL} DAYS <span class="sep">/</span> 0 OF {total_checks()} CHECKS
+      <span class="sep">/</span> 0 XP BANKED</div>
   </div>
 </section>'''
 
@@ -296,7 +320,7 @@ def arc_band():
         f'<div class="arc-n mono">{n}</div><div class="arc-d">{d}</div></div>'
         for w, n, d, st in ARC)
     return f'''
-  <div class="subhead mono">THE RUNNING BUILD <span class="sep">/</span> one arc, five repos, each feeding the next</div>
+  <div class="subhead mono">THE RUNNING BUILD <span class="sep">/</span> one arc, each repo feeding the next</div>
   <div class="arc">{cells}</div>'''
 
 
@@ -312,8 +336,8 @@ def week_cards():
                  f'{GLYPH["today"]} {done}/7 DONE' if st == 'today' else
                  f'{GLYPH["next"]} UPCOMING')
         theme, repo = THEMES[n]
-        cap = ' <span class="cap-tag mono">CAPSTONE</span>' if n in (9, 10, 11) else ''
-        if n == 9:
+        cap = ' <span class="cap-tag mono">CAPSTONE</span>' if n in (10, 11) else ''
+        if n == 10:
             cards += ('<div class="cap-group" id="capGroup">'
                       '<div class="cap-bracket"><span class="cap-lbl mono">ONE CAPSTONE</span></div>'
                       '<div class="cap-cards">')
@@ -338,7 +362,7 @@ def week_cards():
     return f'''
 <section id="weeks" class="sec">
   <h2 class="sec-h"><span class="sec-n mono">02</span> WEEK BY WEEK</h2>
-  <div class="sec-sub mono">TWELVE PHASES <span class="sep">/</span> W9–11 ARE ONE CONNECTED CAPSTONE</div>
+  <div class="sec-sub mono">TWELVE PHASES <span class="sep">/</span> W10–11 ARE ONE CONNECTED CAPSTONE</div>
   {arc_band()}
   <div class="wk-grid">{cards}</div>
 </section>'''
@@ -383,8 +407,8 @@ def punchcard():
         <div class="here-l mono">YOU ARE HERE</div>
         <div class="here-m">
           <div class="here-day mono">DAY {TODAY}</div>
-          <div class="here-t">pytest: fixtures, parametrize, structure</div>
-          <div class="here-s mono">WEEK 2 <span class="sep">/</span> LEVEL {TODAY}
+          <div class="here-t">{strip_tags(day_of(TODAY)["title"])}</div>
+          <div class="here-s mono">WEEK {wk_of(TODAY)} <span class="sep">/</span> LEVEL {TODAY}
             <span class="sep">/</span> 0 OF 7 CHECKS TICKED</div>
         </div>
         <a class="here-go mono" href="#d{TODAY}">OPEN TODAY’S CARD →</a>
@@ -410,18 +434,21 @@ def ritual():
     return f'''
 <section id="ritual" class="sec">
   <h2 class="sec-h"><span class="sec-n mono">03</span> THE DAILY RITUAL</h2>
-  <div class="sec-sub mono">NINE STEPS <span class="sep">/</span> EVERY CARD, EVERY DAY, NO EXCEPTIONS</div>
+  <div class="sec-sub mono">NINE STEPS <span class="sep">/</span> TWO HOURS <span class="sep">/</span> EVERY CARD, EVERY DAY</div>
   <div class="loop-strip">{cells}</div>
   <p class="ritual-note">The order is the point. You read only after you know why the thing exists, you
     build only after you know what breaks, and the day does not close until you can say it back with the
-    book shut. A day is <em>cleared</em> when its tests pass and the commit lands — not when you have read it.</p>
+    book shut. The day opens with a review because pulling old material out of memory, a little later each
+    time, is what makes it last. A day is <em>cleared</em> when its tests pass and the commit lands — not when
+    you have read it.</p>
 </section>'''
 
 
 def xp_panel():
-    rows = [('read', 'READ &amp; UNDERSTOOD', '+30', 'per source, extract stated'),
+    rows = [('review', 'REVIEW FROM MEMORY', '+20', 'answered before looking anything up'),
+            ('read', 'READ &amp; UNDERSTOOD', '+30', 'per source, extract stated (no reading on boss and capstone build days)'),
             ('build', 'BUILD / LEVEL CLEARED', '+50', 'tests pass, commit lands'),
-            ('sql', 'SQL REPS', '+20', 'both accepted'),
+            ('practice', 'PRACTICE REP', '+20', 'timed, miss logged in error-log.md'),
             ('recall', 'RECALL BOSS CHECK', '+25', 'book closed, said aloud'),
             ('perfect', 'PERFECT DAY BONUS', '+25', 'every box on the card')]
     tr = ''.join(
@@ -429,8 +456,8 @@ def xp_panel():
         f'<td>{d}</td><td><span class="xp-state mono open" data-xprow="{i}">○ LOCKED</span></td></tr>'
         for i, k, v, d in rows)
     tr += ('<tr class="total"><td class="mono">PERFECT DAY TOTAL</td>'
-           '<td class="mono val">150</td><td>the ceiling</td>'
-           '<td><span class="xp-state mono open" data-xprow="total">0 / 150</span></td></tr>')
+           '<td class="mono val">170</td><td>the ceiling (140 on days with no reading)</td>'
+           '<td><span class="xp-state mono open" data-xprow="total">0 / 170</span></td></tr>')
     ms = [('s7', '7-DAY STREAK', 'DAY 7'), ('s14', '14-DAY STREAK', 'DAY 14'),
           ('week', 'FINISH ANY WEEK (7/7)', 'W1 7/7'), ('ship', 'SHIP THE CAPSTONE', 'DAY 77')]
     mrows = ''.join(
@@ -452,7 +479,7 @@ def xp_panel():
       <tbody>{tr}</tbody></table>
     </div>
     <div class="xp-side">
-      <div class="xp-big"><div class="xp-num" id="xpBank">1,050</div>
+      <div class="xp-big"><div class="xp-num" id="xpBank">0</div>
         <div class="lbl mono">XP BANKED</div></div>
       <div class="xp-big"><div class="xp-num" id="xpStreak">{DONE_THRU}<span class="fire">\U0001f525</span></div>
         <div class="lbl mono">DAY STREAK</div></div>
@@ -500,7 +527,7 @@ STAR_SLOTS = [
 
 
 def star_bank():
-    """Day 80 asks for six STAR stories. The program supplies the prompts; the
+    """Day 82 asks for six STAR stories. The program supplies the prompts; the
     reader supplies the stories. Slots start empty on purpose."""
     rows = ''.join(
         f'<div class="star-slot"><div class="ss-h mono"><span class="ss-n">{i:02d}</span>'
@@ -527,7 +554,7 @@ def day_card(d, wk):
         blocks.setdefault(slot_of(sec['label']), []).append(sec)
 
     idx = [0]                      # per-day running checkbox index
-    cats = {'READ': [], 'BUILD': [], 'SQL': [], 'RECALL': []}
+    cats = {'REVIEW': [], 'READ': [], 'BUILD': [], 'PRACTICE': [], 'RECALL': []}
     console = []                   # groups the TODAY console rebuilds
 
     def stamp(fragment, cat):
@@ -591,7 +618,7 @@ def day_card(d, wk):
         </div>
         {f'<div class="target"><span class="t-l mono">CUTOFF TARGET</span><div class="t-b prose">{deglyph(d["target"])}</div></div>' if d['target'] else ''}
         <div class="steps">{body}</div>
-        {star_bank() if n == 80 else ''}
+        {star_bank() if n == 82 else ''}
       </article>'''
 
 
@@ -618,7 +645,7 @@ def all_days():
     return f'''
 <section id="days" class="sec">
   <h2 class="sec-h"><span class="sec-n mono">07</span> ALL 84 DAYS</h2>
-  <div class="sec-sub mono">EVERY CARD IN FULL <span class="sep">/</span> DAYS 1–7 SHOWN CLEARED</div>
+  <div class="sec-sub mono">EVERY CARD IN FULL <span class="sep">/</span> OPEN ANY DAY</div>
   {out}
 </section>'''
 
@@ -1306,7 +1333,7 @@ JS = r'''
 (function(){
   'use strict';
   var D=window.DAYS, TOTAL=__TOTAL__, SEED=__SEED__;
-  var XP={READ:30,BUILD:50,SQL:20,RECALL:25}, BONUS=25, KEY='daily-executor.v3';
+  var XP={REVIEW:20,READ:30,BUILD:50,PRACTICE:20,RECALL:25}, BONUS=25, KEY='daily-executor.v4';
   var $=function(i){return document.getElementById(i)};
   function esc(s){return String(s).replace(/[&<>"]/g,function(c){
     return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]})}
@@ -1613,7 +1640,7 @@ JS = r'''
     if(cg){
       var cd=0,ct=0,live=false;
       days.forEach(function(n){
-        if(D[n].w>=9&&D[n].w<=11){ct++;if(score(n).done)cd++;if(n===cur)live=true}
+        if(D[n].w>=10&&D[n].w<=11){ct++;if(score(n).done)cd++;if(n===cur)live=true}
       });
       cg.className='cap-group'+(cd===ct?' done':(live?' today':''));
     }
@@ -1627,7 +1654,7 @@ JS = r'''
 
   function paintXp(cur){
     var n=(view!=null?view:cur), c=D[n].cats, sc=score(n);
-    var rows={READ:'read',BUILD:'build',SQL:'sql',RECALL:'recall'};
+    var rows={REVIEW:'review',READ:'read',BUILD:'build',PRACTICE:'practice',RECALL:'recall'};
     for(var k in rows){
       var el=document.querySelector('[data-xprow="'+rows[k]+'"]');
       if(!el)continue;
@@ -2053,7 +2080,7 @@ def build():
         'res': collapsibles(PLAN['resources'], 'resources', '05', 'RESOURCE LIBRARY',
                             'EVERY LINK FROM THE PLAN / GROUPED BY HOW YOU USE IT'),
         'cheats': collapsibles(PLAN['cheats'], 'cheats', '06', 'CHEAT SHEETS',
-                               'TEN-MINUTE WARM-UP / SKIM BEFORE THE CARD'),
+                               'SKIM BEFORE THE CARD / THEY FEED THE REVIEW LOOP'),
         'days': all_days(), 'arc': program_arc(), 'backup': backup_panel(),
     }
     data = json.dumps(DAYDATA, ensure_ascii=False, separators=(',', ':'))
@@ -2062,8 +2089,8 @@ def build():
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Daily Executor — 12-Week AI + Data + Lakehouse Engineering Program</title>
-<meta name="description" content="An open 12-week AI + Data + Lakehouse engineering program: 84 day-cards, a daily ritual checklist, XP, streak and progress tracking. Bring your own targets.">
+<title>Daily Executor — 12-Week AI + Data Engineering Program</title>
+<meta name="description" content="An open 12-week AI + Data engineering program: 84 two-hour day-cards with built-in spaced review, a daily ritual checklist, XP, streak and progress tracking. Bring your own targets.">
 <meta name="color-scheme" content="light dark">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
