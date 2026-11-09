@@ -3,7 +3,7 @@ const out = (columns, rows) => ({ columns, rows });
 const person = (rows) => tbl('person', 'id INT, email VARCHAR', rows);
 
 module.exports = {
-  id: 'sql-d01-delete-duplicate-emails', day: 1, anchor: 'LC 196', cat: 'PRACTICE', bounty: 20, lang: 'sql',
+  id: 'sql-d01-delete-duplicate-emails', day: 1, lc: 'delete-duplicate-emails', anchor: 'LC 196', cat: 'PRACTICE', bounty: 20, lang: 'sql',
   title: 'Delete Duplicate Emails', kind: 'mutate', ordered: false,
   verify: 'SELECT id, email FROM person ORDER BY id',
   schema: ['person(id INT, email VARCHAR)   -- id is unique'],

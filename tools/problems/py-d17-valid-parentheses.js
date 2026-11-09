@@ -1,7 +1,7 @@
 const { para } = require('../build_problems.js');
 
 module.exports = {
-  id: 'py-d17-valid-parentheses', day: 17, anchor: 'Valid Parentheses', cat: 'BUILD', bounty: 10, lang: 'python',
+  id: 'py-d17-valid-parentheses', day: 17, lc: 'valid-parentheses', anchor: 'Valid Parentheses', cat: 'BUILD', bounty: 10, lang: 'python',
   title: 'Valid Parentheses', kind: 'func', fn: 'is_valid', cmp: 'eq',
   signature: 'def is_valid(s: str) -> bool',
   statement: para(

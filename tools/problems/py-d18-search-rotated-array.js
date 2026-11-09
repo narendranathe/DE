@@ -1,7 +1,7 @@
 const { para } = require('../build_problems.js');
 
 module.exports = {
-  id: 'py-d18-search-rotated-array', day: 18, anchor: 'Search in Rotated Sorted Array', cat: 'BUILD', bounty: 10, lang: 'python',
+  id: 'py-d18-search-rotated-array', day: 18, lc: 'search-in-rotated-sorted-array', anchor: 'Search in Rotated Sorted Array', cat: 'BUILD', bounty: 10, lang: 'python',
   title: 'Search in Rotated Sorted Array', kind: 'func', fn: 'search_rotated', cmp: 'eq',
   signature: 'def search_rotated(nums: list[int], target: int) -> int',
   statement: para(

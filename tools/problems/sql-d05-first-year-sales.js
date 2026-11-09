@@ -3,7 +3,7 @@ const out = (columns, rows) => ({ columns, rows });
 const sales = (rows) => tbl('sales', 'sale_id INT, product_id INT, year INT, quantity INT, price INT', rows);
 
 module.exports = {
-  id: 'sql-d05-first-year-sales', day: 5, anchor: 'LC 1070', cat: 'PRACTICE', bounty: 20, lang: 'sql',
+  id: 'sql-d05-first-year-sales', day: 5, lc: 'product-sales-analysis-iii', anchor: 'LC 1070', cat: 'PRACTICE', bounty: 20, lang: 'sql',
   title: 'Product Sales Analysis III', kind: 'select', ordered: false,
   schema: ['sales(sale_id INT, product_id INT, year INT, quantity INT, price INT)'],
   statement: para(

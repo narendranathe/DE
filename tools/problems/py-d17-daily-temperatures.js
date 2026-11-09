@@ -1,7 +1,7 @@
 const { para } = require('../build_problems.js');
 
 module.exports = {
-  id: 'py-d17-daily-temperatures', day: 17, anchor: 'Daily Temperatures', cat: 'BUILD', bounty: 10, lang: 'python',
+  id: 'py-d17-daily-temperatures', day: 17, lc: 'daily-temperatures', anchor: 'Daily Temperatures', cat: 'BUILD', bounty: 10, lang: 'python',
   title: 'Daily Temperatures', kind: 'func', fn: 'daily_temperatures', cmp: 'eq',
   signature: 'def daily_temperatures(temperatures: list[int]) -> list[int]',
   statement: para(

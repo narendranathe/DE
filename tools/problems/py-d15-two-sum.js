@@ -1,7 +1,7 @@
 const { para } = require('../build_problems.js');
 
 module.exports = {
-  id: 'py-d15-two-sum', day: 15, anchor: 'Two Sum', cat: 'BUILD', bounty: 10, lang: 'python',
+  id: 'py-d15-two-sum', day: 15, lc: 'two-sum', anchor: 'Two Sum', cat: 'BUILD', bounty: 10, lang: 'python',
   title: 'Two Sum', kind: 'func', fn: 'two_sum', cmp: 'unordered',
   signature: 'def two_sum(nums: list[int], target: int) -> list[int]',
   statement: para(

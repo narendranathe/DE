@@ -1,7 +1,7 @@
 const { para } = require('../build_problems.js');
 
 module.exports = {
-  id: 'py-d15-top-k-frequent', day: 15, anchor: 'Top K Frequent Elements', cat: 'BUILD', bounty: 10, lang: 'python',
+  id: 'py-d15-top-k-frequent', day: 15, lc: 'top-k-frequent-elements', anchor: 'Top K Frequent Elements', cat: 'BUILD', bounty: 10, lang: 'python',
   title: 'Top K Frequent Elements', kind: 'func', fn: 'top_k_frequent', cmp: 'unordered',
   signature: 'def top_k_frequent(nums: list[int], k: int) -> list[int]',
   statement: para(

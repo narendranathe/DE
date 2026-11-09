@@ -4,7 +4,7 @@ const tx = (rows) => tbl('transactions', 'id INT, country VARCHAR, state VARCHAR
 const cols = ['month', 'country', 'trans_count', 'approved_count', 'trans_total_amount', 'approved_total_amount'];
 
 module.exports = {
-  id: 'sql-d12-monthly-transactions', day: 12, anchor: 'LC 1193', cat: 'PRACTICE', bounty: 20, lang: 'sql',
+  id: 'sql-d12-monthly-transactions', day: 12, lc: 'monthly-transactions-i', anchor: 'LC 1193', cat: 'PRACTICE', bounty: 20, lang: 'sql',
   title: 'Monthly Transactions I', kind: 'select', ordered: false,
   schema: ["transactions(id INT, country VARCHAR, state VARCHAR, amount INT, trans_date DATE)   -- state: 'approved' or 'declined'"],
   statement: para(

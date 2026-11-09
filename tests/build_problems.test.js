@@ -9,7 +9,7 @@ const T = (columns, rows) => ({ columns, rows });
 
 function sqlSrc(over) {
   return Object.assign({
-    id: 'sql-d01-demo', day: 1, lang: 'sql', anchor: 'LC 1', cat: 'PRACTICE', bounty: 20,
+    id: 'sql-d01-demo', day: 1, lang: 'sql', anchor: 'LC 1', lc: 'demo-sql', cat: 'PRACTICE', bounty: 20,
     title: 'Demo', kind: 'select', ordered: false,
     statement: 'Return the biggest salary.',
     schema: ['emp(id INT, salary INT)'],
@@ -28,7 +28,7 @@ function sqlSrc(over) {
 
 function pySrc(over) {
   return Object.assign({
-    id: 'py-d15-demo', day: 15, lang: 'python', anchor: 'Demo', cat: 'BUILD', bounty: 10,
+    id: 'py-d15-demo', day: 15, lang: 'python', anchor: 'Demo', lc: 'demo-py', cat: 'BUILD', bounty: 10,
     title: 'Demo', kind: 'func', fn: 'double', cmp: 'eq',
     statement: 'Return twice n.', signature: 'def double(n: int) -> int:',
     starter: 'def double(n):\n    pass\n',
@@ -78,6 +78,34 @@ for (const [name, src, re] of BAD) {
     assert.match(errs[0], new RegExp(String(src.id).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')), 'errors name the problem');
   });
 }
+
+test('A4 every question names the LeetCode problem it replaces, as a slug', () => {
+  for (const bad of [undefined, '', 'Two Sum', 'two_sum', '-x', 'a--b']) {
+    assert.match(B.validate(sqlSrc({ lc: bad })).join(' '), /lc/, String(bad));
+  }
+  assert.deepEqual(B.validate(sqlSrc({ lc: 'product-sales-analysis-iii' })), []);
+  assert.deepEqual(B.validate(sqlSrc({ lc: '3sum' })), []);
+});
+
+test('A4 a question that sits inside a multi-question checkbox has no XP: bounty 0, no category, no anchor', () => {
+  const linkOnly = sqlSrc({ id: 'sql-d07-demo', day: 7, lc: 'demo-link', bounty: 0, cat: null, anchor: undefined });
+  assert.deepEqual(B.validate(linkOnly), []);
+  assert.match(B.validate(sqlSrc({ bounty: 0 })).join(' '), /cat|bounty/, 'bounty 0 with a category is a mistake');
+  assert.match(B.validate(sqlSrc({ cat: null })).join(' '), /cat/, 'a category-less question must say bounty 0');
+});
+
+test('A4 validateAll rejects two questions for the same LeetCode problem', () => {
+  const errs = B.validateAll([sqlSrc(), sqlSrc({ id: 'sql-d02-other', day: 2, anchor: 'LC 2' })]);
+  assert.match(errs.join(' '), /lc|LeetCode/i);
+});
+
+test('A4 conv: a Python question may take a tree or a graph as an argument and give one back', () => {
+  assert.deepEqual(B.validate(pySrc({ conv: { args: { 0: 'tree' }, ret: 'tree' } })), []);
+  assert.deepEqual(B.validate(pySrc({ conv: { args: { 0: 'graph' }, ret: 'graph' } })), []);
+  assert.match(B.validate(pySrc({ conv: { args: { 0: 'forest' } } })).join(' '), /conv/);
+  assert.match(B.validate(pySrc({ conv: { ret: 'heap' } })).join(' '), /conv/);
+  assert.match(B.validate(sqlSrc({ conv: { ret: 'tree' } })).join(' '), /conv/, 'only Python questions convert');
+});
 
 test('A1 validateAll rejects duplicate ids', () => {
   const errs = B.validateAll([sqlSrc(), sqlSrc()]);

@@ -3,7 +3,7 @@ const out = (columns, rows) => ({ columns, rows });
 const delivery = (rows) => tbl('delivery', 'delivery_id INT, customer_id INT, order_date DATE, preferred_date DATE', rows.map((r) => [r[0], r[1], D(r[2]), D(r[3])]));
 
 module.exports = {
-  id: 'sql-d04-immediate-food-delivery', day: 4, anchor: 'LC 1174', cat: 'PRACTICE', bounty: 20, lang: 'sql',
+  id: 'sql-d04-immediate-food-delivery', day: 4, lc: 'immediate-food-delivery-ii', anchor: 'LC 1174', cat: 'PRACTICE', bounty: 20, lang: 'sql',
   title: 'Immediate Food Delivery II', kind: 'select', ordered: false,
   schema: ['delivery(delivery_id INT, customer_id INT, order_date DATE, preferred_date DATE)'],
   statement: para(

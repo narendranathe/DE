@@ -213,6 +213,51 @@ test('Python engine', async (t) => {
     assert.match(v.fail.input, /push\(3\); push\(1\); push\(2\)/);
   });
 
+  await t.test('J4 conv tree: the test data is a level-order list, the learner gets TreeNode objects and gives one back', async () => {
+    const INVERT = {
+      id: 'py-invert', lang: 'python', kind: 'func', fn: 'invert', cmp: 'eq', conv: { args: { 0: 'tree' }, ret: 'tree' },
+      cases: [
+        { args: [[4, 2, 7, 1, 3, 6, 9]], expected: [4, 7, 2, 9, 6, 3, 1] },
+        { args: [[]], expected: [] },
+        { args: [[1, null, 2]], expected: [1, 2], hidden: true },
+        { args: [[1, 2, 3, null, 4]], expected: [1, 3, 2, null, null, 4], hidden: true },
+      ],
+    };
+    const good = 'def invert(root):\n    if root is None:\n        return None\n    root.left, root.right = invert(root.right), invert(root.left)\n    return root\n';
+    const v = await J.judge(INVERT, good, py, { scope: 'submit' });
+    assert.equal(v.verdict, 'Accepted', JSON.stringify(v.fail));
+    assert.equal(v.passed, 4);
+    // TreeNode exists without the learner defining it, and has val, left and right
+    const mk = { id: 'py-mk', lang: 'python', kind: 'func', fn: 'f', cmp: 'eq', conv: { ret: 'tree' }, cases: [{ args: [], expected: [1, 2, 3] }] };
+    assert.equal((await J.judge(mk, 'def f():\n    return TreeNode(1, TreeNode(2), TreeNode(3))\n', py, { scope: 'submit' })).verdict, 'Accepted');
+    // a wrong tree is a Wrong Answer that shows the tree as a list
+    const bad = await J.judge(INVERT, 'def invert(root):\n    return root\n', py, { scope: 'submit' });
+    assert.equal(bad.verdict, 'Wrong Answer');
+    assert.deepEqual(bad.fail.actual, [4, 2, 7, 1, 3, 6, 9]);
+    assert.deepEqual(bad.fail.expected, [4, 7, 2, 9, 6, 3, 1]);
+    // a tree argument only: the answer stays a plain value
+    const DEPTH = { id: 'py-depth', lang: 'python', kind: 'func', fn: 'depth', cmp: 'eq', conv: { args: { 0: 'tree' } }, cases: [{ args: [[3, 9, 20, null, null, 15, 7]], expected: 3 }, { args: [[]], expected: 0 }] };
+    const d = 'def depth(root):\n    return 0 if root is None else 1 + max(depth(root.left), depth(root.right))\n';
+    assert.equal((await J.judge(DEPTH, d, py, { scope: 'submit' })).verdict, 'Accepted');
+  });
+
+  await t.test('J4 conv graph: adjacency lists in and out, and a copy must not reuse the original nodes', async () => {
+    const CLONE = {
+      id: 'py-clone', lang: 'python', kind: 'func', fn: 'clone', cmp: 'eq', conv: { args: { 0: 'graph' }, ret: 'graph' },
+      cases: [
+        { args: [[[2, 4], [1, 3], [2, 4], [1, 3]]], expected: [[2, 4], [1, 3], [2, 4], [1, 3]] },
+        { args: [[[]]], expected: [[]] },
+        { args: [[]], expected: [], hidden: true },
+      ],
+    };
+    const good = 'def clone(node):\n    if node is None:\n        return None\n    made = {}\n    def go(n):\n        if n in made:\n            return made[n]\n        c = Node(n.val)\n        made[n] = c\n        c.neighbors = [go(m) for m in n.neighbors]\n        return c\n    return go(node)\n';
+    const v = await J.judge(CLONE, good, py, { scope: 'submit' });
+    assert.equal(v.verdict, 'Accepted', JSON.stringify(v.fail));
+    const same = await J.judge(CLONE, 'def clone(node):\n    return node\n', py, { scope: 'submit' });
+    assert.equal(same.verdict, 'Wrong Answer');
+    assert.match(String(same.fail.actual), /original/i, 'returning the same graph is not a copy');
+  });
+
   await t.test('J4 booleans are not integers', async () => {
     const b = { id: 'b', lang: 'python', kind: 'func', fn: 'b', cmp: 'eq', cases: [{ args: [], expected: true }] };
     assert.equal((await J.judge(b, 'def b():\n    return 1\n', py, { scope: 'submit' })).verdict, 'Wrong Answer');

@@ -1,7 +1,7 @@
 const { para } = require('../build_problems.js');
 
 module.exports = {
-  id: 'py-d16-longest-substring', day: 16, anchor: 'Longest Substring Without Repeating Characters', cat: 'BUILD', bounty: 10, lang: 'python',
+  id: 'py-d16-longest-substring', day: 16, lc: 'longest-substring-without-repeating-characters', anchor: 'Longest Substring Without Repeating Characters', cat: 'BUILD', bounty: 10, lang: 'python',
   title: 'Longest Substring Without Repeating Characters', kind: 'func', fn: 'length_of_longest_substring', cmp: 'eq',
   signature: 'def length_of_longest_substring(s: str) -> int',
   statement: para(

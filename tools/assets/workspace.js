@@ -60,6 +60,8 @@
   }
   function note(text, kind, extra) { return h('div', { class: 'ws-note' + (kind ? ' ' + kind : '') }, [h('span', null, text), extra || null]); }
   function ws() { return DE.ws(); }
+  function catLabel(p) { return p.cat === 'PRACTICE' ? 'PRACTICE REP' : p.cat === 'BUILD' ? 'BUILD' : 'TIMED SET'; }
+  function xpText(n) { return n ? MINUS + n + ' XP' : 'free'; }
   function errText(e) {
     switch (e && e.code) {
       case 'network': return 'Could not reach the community service. A free project sleeps after a week unused, so the first call can be slow. Try again in a moment.';
@@ -197,7 +199,10 @@
     build();
     if (shown && !dlg.open) onClosed(); // closed a moment ago and its event has not arrived yet: finish that first
     var was = dlg.open;
-    cur = { p: p, tab: 'desc', solSort: 'votes', cmSort: 'votes' };
+    // opened from a checkbox: that box is the one an Accepted answer ticks (a repeat on a later day ticks its own box)
+    var li = from && from.closest ? from.closest('li.check') : null, cb = li ? li.querySelector('input[data-k]') : null;
+    var slot = cb ? DE.slot(cb.getAttribute('data-k')) : null;
+    cur = { p: p, slot: slot && slot.id === id ? slot : null, tab: 'desc', solSort: 'votes', cmSort: 'votes' };
     if (!was) opener = from || document.activeElement;
     var want = WC.hashFor(id);
     if (want !== location.hash) {
@@ -218,10 +223,12 @@
   }
 
   function paintHead() {
-    var p = cur.p, w = ws(), used = w.hints[p.id] || 0, cost = JD.hintCost(p.bounty, used);
-    els.kind.textContent = (p.lang === 'sql' ? 'SQL' : 'PYTHON') + ' · DAY ' + p.day + ' · ' + (p.cat === 'PRACTICE' ? 'PRACTICE REP' : 'BUILD');
+    var p = cur.p, w = ws(), used = w.hints[p.id] || 0, cost = JD.hintCost(p.bounty, used), slot = cur.slot;
+    els.kind.textContent = (p.lang === 'sql' ? 'SQL' : 'PYTHON') + ' · DAY ' + (slot ? slot.day : p.day) + (slot && slot.review ? ' · REVIEW' : '') + ' · ' + catLabel(p);
     els.title.textContent = p.title;
-    els.bounty.textContent = 'BOUNTY ' + p.bounty + ' XP' + (cost ? ' · HINTS ' + MINUS + cost + ' XP' : '') + (w.solved[p.id] ? ' · SOLVED ✓' : '');
+    els.bounty.textContent = (p.bounty === 0 ? 'NO XP AT STAKE'
+      : slot && slot.review ? 'REVIEW · THE XP WAS ON DAY ' + p.day
+      : 'BOUNTY ' + p.bounty + ' XP' + (cost ? ' · HINTS ' + MINUS + cost + ' XP' : '')) + (w.solved[p.id] ? ' · SOLVED ✓' : '');
   }
 
   function paintAuth() {
@@ -305,7 +312,7 @@
     catch (e) { res = { verdict: 'Judge Error', passed: 0, total: 0, ms: 0, fail: { message: RT.msg(e) } }; }
     busy = false; setButtons();
 
-    var first = false, info = DE.problem(p.id);
+    var first = false, info = cur.slot || DE.problem(p.id);
     if (scope === 'submit') {
       var r = WC.recordSubmission(ws(), p, res, code, new Date().toISOString());
       if (r.ws !== ws()) DE.setWs(r.ws);
@@ -367,8 +374,8 @@
     var p = cur.p, out = [];
     out.push(h('div', { class: 'ws-chips' }, [
       h('span', { class: 'ws-chip' }, p.lang === 'sql' ? 'SQL' : 'PYTHON'),
-      h('span', { class: 'ws-chip' }, 'DAY ' + p.day),
-      h('span', { class: 'ws-chip' }, p.cat === 'PRACTICE' ? 'PRACTICE REP' : 'BUILD'),
+      h('span', { class: 'ws-chip' }, 'DAY ' + (cur.slot ? cur.slot.day : p.day)),
+      h('span', { class: 'ws-chip' }, catLabel(p)),
     ]));
     out = out.concat(blocks(p.statement));
     if (p.lang === 'python' && p.signature) out.push(h('h4', null, 'Function'), pre(p.signature));
@@ -395,7 +402,9 @@
     var slots = WC.hintSlots(p, used, solved), cost = JD.hintCost(p.bounty, used), out = [];
     out.push(solved
       ? note('You solved this one, so every hint and the full approach are open and free.')
-      : note('Bounty ' + p.bounty + ' XP. Hints open in order, and each one takes XP off what this question earns' + (cost ? ' (so far ' + cost + ' XP)' : '') + '. The full approach costs whatever is left of the bounty and opens other learners’ solutions.', 'warn'));
+      : p.bounty === 0
+        ? note('No XP is at stake on this one, so every hint is free. They still open in order.')
+        : note('Bounty ' + p.bounty + ' XP. Hints open in order, and each one takes XP off what this question earns' + (cost ? ' (so far ' + cost + ' XP)' : '') + '. The full approach costs whatever is left of the bounty and opens other learners’ solutions.', 'warn'));
     slots.forEach(function (s) {
       var head = h('div', { class: 'ws-hint-h' }, [h('span', null, s.label.toUpperCase()), h('span', null, s.state === 'open' ? 'OPEN' : s.state === 'next' ? 'NEXT' : 'LOCKED')]);
       var body = h('div', { class: 'ws-hint-b' });
@@ -414,13 +423,13 @@
       onclick: function () {
         clear(body).appendChild(h('div', { class: 'ws-confirm-box' }, [
           h('span', null, s.n === 4
-            ? 'This opens the full solution. It costs ' + s.cost + ' XP, the rest of the bounty, and it cannot be undone.'
-            : 'This hint costs ' + s.cost + ' XP and cannot be undone.'),
+            ? (s.cost ? 'This opens the full solution. It costs ' + s.cost + ' XP, the rest of the bounty, and it cannot be undone.' : 'This opens the full solution and cannot be undone.')
+            : (s.cost ? 'This hint costs ' + s.cost + ' XP and cannot be undone.' : 'This hint is free and cannot be undone.')),
           h('button', { type: 'button', class: 'ws-btn danger small ws-confirm', onclick: function () { doReveal(s.n); } }, 'REVEAL'),
           h('button', { type: 'button', class: 'ws-btn quiet small ws-cancel', onclick: paintHints }, 'CANCEL'),
         ]));
       },
-    }, label + ' · ' + MINUS + s.cost + ' XP');
+    }, label + ' · ' + xpText(s.cost));
   }
 
   function doReveal(n) {
@@ -746,8 +755,10 @@
   }
 
   document.addEventListener('click', function (e) {
-    var b = e.target && e.target.closest ? e.target.closest('.solve[data-p]') : null;
+    var b = e.target && e.target.closest ? e.target.closest('.solve[data-p], a.qlink[data-p]') : null;
     if (!b) return;
+    // a link opened in a new tab keeps its #p/<id> address and opens the question there
+    if (b.tagName === 'A' && (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey)) return;
     e.preventDefault();
     open(b.getAttribute('data-p'), b);
   });

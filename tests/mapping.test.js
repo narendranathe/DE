@@ -51,15 +51,95 @@ for (const p of PROBLEMS) {
   });
 }
 
-test('W1 only bank questions get a button, and a day without any has no probs', () => {
-  const inCards = page.match(/class="solve[^"]*" data-p="/g) || [];
-  assert.equal(inCards.length, PROBLEMS.length);
-  const withProbs = Object.keys(DAYS).filter((d) => DAYS[d].probs && DAYS[d].probs.length);
-  const expected = [...new Set(PROBLEMS.map((p) => String(p.day)))].sort();
-  assert.deepEqual(withProbs.sort(), expected);
+const BY_LC = Object.fromEntries(PROBLEMS.map((p) => [p.lc, p]));
+const lcLinks = (html) => [...html.matchAll(/<a [^>]*href="https:\/\/leetcode\.com\/problems\/([^"\/]+)\/?"[^>]*>/g)].map((m) => m[1]);
+const qLinks = (html) => [...html.matchAll(/<a class="qlink"[^>]*data-p="([^"]+)"/g)].map((m) => m[1]);
+const allCards = page.slice(page.indexOf('<article class="day'));
+
+test('W1 a day without bank questions has no probs and no buttons', () => {
   assert.equal(DAYS[14].probs, undefined);
   assert.doesNotMatch(card(14), /class="solve/);
-  assert.doesNotMatch(card(7), /class="solve/, 'the day 7 timed set is not a single question');
+  assert.doesNotMatch(card(7), /class="solve/, 'the day 7 timed set lists several problems in one checkbox, so it gets links and no button');
+});
+
+test('A4 every question names a different LeetCode problem', () => {
+  assert.equal(new Set(PROBLEMS.map((p) => p.lc)).size, PROBLEMS.length);
+  for (const p of PROBLEMS) assert.match(p.lc, /^[a-z0-9]+(-[a-z0-9]+)*$/, p.id);
+});
+
+test('W4 no problem in the plan sends you to LeetCode first: every problem link is a question here, with LeetCode as a small extra', () => {
+  const raw = [...allCards.matchAll(/<a [^>]*href="https:\/\/leetcode\.com\/problems\/([^"\/]+)\/?"[^>]*>/g)];
+  assert.ok(raw.length > 60, 'the plan links to many LeetCode problems');
+  const missing = [...new Set(raw.map((m) => m[1]).filter((slug) => !BY_LC[slug]))];
+  assert.deepEqual(missing, [], 'LeetCode problems with no question of their own');
+  // each remaining LeetCode link is the quiet "LC ↗" one, right after the link that opens the question
+  const plain = [...allCards.matchAll(/<a (?![^>]*class="lc")[^>]*href="https:\/\/leetcode\.com\/problems\/[^"]+"[^>]*>/g)];
+  assert.equal(plain.length, 0, 'a LeetCode problem link that is not the small LC link');
+  const pairs = [...allCards.matchAll(/<a class="qlink" href="#p\/([^"]+)" data-p="\1">[^<]*<\/a> <a class="lc" href="https:\/\/leetcode\.com\/problems\/([^"\/]+)\/"/g)];
+  assert.equal(pairs.length, raw.length);
+  for (const m of pairs) assert.equal(BY_LC[m[2]].id, m[1], 'the question link and the LeetCode link name the same problem');
+});
+
+test('W4 the link keeps its text, opens #p/<id>, and the LeetCode copy opens in a new tab without sending a referrer', () => {
+  const html = card(2);
+  assert.match(html, /<a class="qlink" href="#p\/sql-d02-department-top-three-salaries" data-p="sql-d02-department-top-three-salaries">LC 185 — Department Top Three Salaries<\/a>/);
+  assert.match(html, /<a class="lc" href="https:\/\/leetcode\.com\/problems\/department-top-three-salaries\/" target="_blank" rel="noopener noreferrer"[^>]*>LC ↗<\/a>/);
+});
+
+test('W5 a repeat of a question on a later day gets its own button and a probs entry that costs nothing', () => {
+  const rows = [[62, 'sql-d01-delete-duplicate-emails'], [64, 'sql-d02-department-top-three-salaries'], [21, 'py-d16-longest-substring'], [31, 'py-d17-min-stack']];
+  for (const [day, id] of rows) {
+    const hit = (DAYS[day].probs || []).find((x) => x.id === id);
+    assert.ok(hit, `day ${day} has a slot for ${id}`);
+    assert.equal(hit.bounty, 0, 'the hints were paid for on the first day');
+    assert.equal(hit.review, true);
+    assert.equal(hit.cat, 'PRACTICE');
+    assert.match(card(day), new RegExp(`<button[^>]*data-p="${id}"[^>]*>SOLVE HERE</button>`));
+    assert.ok(DAYS[day].cats.PRACTICE.includes(hit.key));
+  }
+});
+
+test('W5 the first day of a question carries the bounty, and only that day', () => {
+  for (const p of PROBLEMS.filter((x) => x.bounty > 0)) {
+    const slots = Object.keys(DAYS).flatMap((d) => (DAYS[d].probs || []).filter((x) => x.id === p.id).map((x) => ({ day: +d, ...x })));
+    const paid = slots.filter((x) => x.bounty > 0);
+    assert.equal(paid.length, 1, `${p.id}: slots that carry XP`);
+    assert.equal(paid[0].day, p.day);
+    assert.equal(paid[0].bounty, p.bounty);
+    assert.ok(slots.filter((x) => x.day !== p.day).every((x) => x.review === true && x.bounty === 0), `${p.id}: later days are reviews`);
+  }
+});
+
+test('W5 a checkbox that lists several problems gets a link for each and no button, and never ticks itself', () => {
+  for (const [day, key] of [[7, '7.6'], [78, '78.8']]) {
+    const li = items(card(day)).find((it) => it.key === key);
+    assert.ok(li, `${day}: ${key}`);
+    assert.ok(qLinks(li.html).length >= 3, `${day}: links to several questions in ${key}`);
+    assert.doesNotMatch(li.html, /class="solve/);
+    assert.ok(!(DAYS[day].probs || []).some((x) => x.key === key), 'no slot for a multi-problem checkbox');
+  }
+});
+
+test('W5 a question that only appears inside such a checkbox has no XP to earn or lose', () => {
+  const only = PROBLEMS.filter((p) => p.bounty === 0);
+  assert.ok(only.length >= 2, 'game play analysis III and account balance');
+  for (const p of only) {
+    assert.equal(p.cat, null, p.id);
+    const everywhere = Object.keys(DAYS).flatMap((d) => (DAYS[d].probs || []).filter((x) => x.id === p.id));
+    assert.deepEqual(everywhere, [], `${p.id} has no slot`);
+  }
+});
+
+test('W1 buttons: one for every checkbox that holds exactly one problem, and none anywhere else', () => {
+  const lis = [...allCards.matchAll(/<li class="check">([\s\S]*?)<\/li>/g)].map((m) => m[1]);
+  const single = lis.filter((li) => qLinks(li).length === 1);
+  const buttons = lis.filter((li) => /class="solve/.test(li));
+  assert.equal(buttons.length, single.length);
+  assert.ok(buttons.every((li) => qLinks(li).length === 1));
+  assert.equal((allCards.match(/class="solve[^"]*" data-p="/g) || []).length, buttons.length, 'no button outside a checkbox');
+  // the number of slots in DAYS matches the number of buttons in the cards
+  const slots = Object.keys(DAYS).reduce((n, d) => n + (DAYS[d].probs || []).length, 0);
+  assert.equal(slots, buttons.length);
 });
 
 test('W1 the button has an accessible name that says which question it opens', () => {

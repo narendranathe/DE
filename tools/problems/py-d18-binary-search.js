@@ -1,7 +1,7 @@
 const { para } = require('../build_problems.js');
 
 module.exports = {
-  id: 'py-d18-binary-search', day: 18, anchor: 'Binary Search', cat: 'BUILD', bounty: 10, lang: 'python',
+  id: 'py-d18-binary-search', day: 18, lc: 'binary-search', anchor: 'Binary Search', cat: 'BUILD', bounty: 10, lang: 'python',
   title: 'Binary Search', kind: 'func', fn: 'search', cmp: 'eq',
   signature: 'def search(nums: list[int], target: int) -> int',
   statement: para(

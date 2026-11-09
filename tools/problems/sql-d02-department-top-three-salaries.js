@@ -4,7 +4,7 @@ const department = (rows) => tbl('department', 'id INT, name VARCHAR', rows);
 const employee = (rows) => tbl('employee', 'id INT, name VARCHAR, salary INT, department_id INT', rows);
 
 module.exports = {
-  id: 'sql-d02-department-top-three-salaries', day: 2, anchor: 'LC 185', cat: 'PRACTICE', bounty: 20, lang: 'sql',
+  id: 'sql-d02-department-top-three-salaries', day: 2, lc: 'department-top-three-salaries', anchor: 'LC 185', cat: 'PRACTICE', bounty: 20, lang: 'sql',
   title: 'Department Top Three Salaries', kind: 'select', ordered: false,
   schema: ['department(id INT, name VARCHAR)', 'employee(id INT, name VARCHAR, salary INT, department_id INT)'],
   statement: para(

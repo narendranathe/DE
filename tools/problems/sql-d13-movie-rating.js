@@ -5,7 +5,7 @@ const movies = (rows) => tbl('movies', 'movie_id INT, title VARCHAR', rows);
 const ratings = (rows) => tbl('ratings', 'movie_id INT, user_id INT, rating INT, created_at DATE', rows.map((r) => [r[0], r[1], r[2], D(r[3])]));
 
 module.exports = {
-  id: 'sql-d13-movie-rating', day: 13, anchor: 'LC 1341', cat: 'PRACTICE', bounty: 20, lang: 'sql',
+  id: 'sql-d13-movie-rating', day: 13, lc: 'movie-rating', anchor: 'LC 1341', cat: 'PRACTICE', bounty: 20, lang: 'sql',
   title: 'Movie Rating', kind: 'select', ordered: false,
   schema: ['users(user_id INT, name VARCHAR)', 'movies(movie_id INT, title VARCHAR)', 'ratings(movie_id INT, user_id INT, rating INT, created_at DATE)'],
   statement: para(

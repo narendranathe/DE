@@ -3,7 +3,7 @@ const out = (columns, rows) => ({ columns, rows });
 const plays = (rows) => tbl('plays', 'player_id INT, device_id INT, event_date DATE, games INT', rows.map((r) => [r[0], r[1], D(r[2]), r[3]]));
 
 module.exports = {
-  id: 'sql-d11-next-day-retention', day: 11, anchor: 'LC 550', cat: 'PRACTICE', bounty: 20, lang: 'sql',
+  id: 'sql-d11-next-day-retention', day: 11, lc: 'game-play-analysis-iv', anchor: 'LC 550', cat: 'PRACTICE', bounty: 20, lang: 'sql',
   title: 'Game Play Analysis IV', kind: 'select', ordered: false,
   schema: ['plays(player_id INT, device_id INT, event_date DATE, games INT)   -- one row per player, device and day'],
   statement: para(

@@ -47,9 +47,16 @@ function validate(p) {
   if (!nonEmpty(p.title)) say('title is required');
   if (p.lang !== 'sql' && p.lang !== 'python') say('lang must be "sql" or "python"');
   if (!(Number.isInteger(p.day) && p.day >= 1 && p.day <= 84)) say('day must be a whole number from 1 to 84');
-  if (!nonEmpty(p.anchor)) say('anchor is required (the text of the checkbox link, e.g. "LC 196")');
-  if (p.cat !== 'PRACTICE' && p.cat !== 'BUILD') say('cat must be "PRACTICE" or "BUILD"');
-  if (!(Number.isInteger(p.bounty) && p.bounty > 0)) say('bounty must be a positive whole number');
+  if (!(typeof p.lc === 'string' && /^[a-z0-9]+(-[a-z0-9]+)*$/.test(p.lc))) say('lc is required: the LeetCode problem this replaces, as in leetcode.com/problems/<lc>/ (lower case, digits, hyphens)');
+  // A question with XP at stake has a checkbox of its own on its day. One that only appears inside a checkbox
+  // listing several problems (a timed set) has bounty 0 and no category: nothing to earn or lose.
+  if (p.bounty === 0) {
+    if (p.cat != null) say('bounty 0 means the question has no checkbox of its own, so cat must be left out');
+  } else {
+    if (!nonEmpty(p.anchor)) say('anchor is required (the text of the checkbox link, e.g. "LC 196")');
+    if (p.cat !== 'PRACTICE' && p.cat !== 'BUILD') say('cat must be "PRACTICE" or "BUILD" (or leave it out and use bounty 0)');
+    if (!(Number.isInteger(p.bounty) && p.bounty > 0)) say('bounty must be a positive whole number, or 0 for a question with no checkbox of its own');
+  }
   if (!nonEmpty(p.statement)) say('statement is required');
   if (!nonEmpty(p.starter)) say('starter is required');
   if (!nonEmpty(p.solution)) say('solution is required');
@@ -65,6 +72,16 @@ function validate(p) {
     if (!c.hidden && c.expect === undefined) say('case ' + (i + 1) + ' is visible, so it needs a hand-written expect');
   });
   if (!['eq', 'unordered', 'groups'].includes(p.cmp || 'eq')) say('cmp must be eq, unordered or groups');
+  if (p.conv !== undefined) {
+    // conv: the test data is plain lists, and the harness builds a tree or a graph from them before the call
+    var okKind = function (k) { return k === 'tree' || k === 'graph'; }, c = p.conv;
+    if (p.lang !== 'python' || p.kind === 'class') say('conv only applies to a Python function question');
+    else if (!c || typeof c !== 'object') say('conv must be an object like { args: { 0: "tree" }, ret: "tree" }');
+    else {
+      Object.keys(c.args || {}).forEach(function (i) { if (!/^\d+$/.test(i) || !okKind(c.args[i])) say('conv.args needs an argument position and "tree" or "graph"'); });
+      if (c.ret !== undefined && !okKind(c.ret)) say('conv.ret must be "tree" or "graph"');
+    }
+  }
 
   if (p.lang === 'sql') {
     if (!['select', 'mutate'].includes(p.kind || 'select')) say('kind must be "select" or "mutate"');
@@ -90,14 +107,20 @@ function validate(p) {
 }
 
 function validateAll(list) {
-  var errs = [], ids = {}, anchors = {};
+  var errs = [], ids = {}, anchors = {}, lcs = {};
   list.forEach(function (p) {
     errs = errs.concat(validate(p));
     if (ids[p.id]) errs.push(p.id + ': duplicate id');
     ids[p.id] = true;
-    var k = p.day + '|' + p.anchor;
-    if (anchors[k]) errs.push(p.id + ': anchor "' + p.anchor + '" on day ' + p.day + ' is already used by ' + anchors[k]);
-    anchors[k] = p.id;
+    if (p.anchor) {
+      var k = p.day + '|' + p.anchor;
+      if (anchors[k]) errs.push(p.id + ': anchor "' + p.anchor + '" on day ' + p.day + ' is already used by ' + anchors[k]);
+      anchors[k] = p.id;
+    }
+    if (p.lc) {
+      if (lcs[p.lc]) errs.push(p.id + ': lc "' + p.lc + '" (the LeetCode problem) is already replaced by ' + lcs[p.lc]);
+      lcs[p.lc] = p.id;
+    }
   });
   return errs;
 }
@@ -168,7 +191,7 @@ async function computeExpected(src, runners, opts) {
 function toPage(full) {
   var fence = full.lang === 'sql' ? 'sql' : 'python';
   var page = {
-    id: full.id, day: full.day, lang: full.lang, anchor: full.anchor, cat: full.cat, bounty: full.bounty,
+    id: full.id, day: full.day, lang: full.lang, lc: full.lc, anchor: full.anchor, cat: full.cat == null ? null : full.cat, bounty: full.bounty,
     title: full.title, statement: full.statement, starter: full.starter, hints: full.hints,
     approach: full.approach.trim() + '\n\n```' + fence + '\n' + full.solution.trim() + '\n```',
   };
@@ -183,6 +206,7 @@ function toPage(full) {
     if (full.fn) page.fn = full.fn;
     if (full.cls) page.cls = full.cls;
     if (full.signature) page.signature = full.signature;
+    if (full.conv) page.conv = full.conv;
   }
   page.cases = full.cases.map(function (c) {
     var o = {};

@@ -5,7 +5,7 @@ const rides = (rows) => tbl('rides', 'ride_id INT, rider_id INT, driver_id INT, 
 const cols = ['ride_date', 'cancellation_rate'];
 
 module.exports = {
-  id: 'sql-d10-ride-cancellation-rate', day: 10, anchor: 'LC 262', cat: 'PRACTICE', bounty: 20, lang: 'sql',
+  id: 'sql-d10-ride-cancellation-rate', day: 10, lc: 'trips-and-users', anchor: 'LC 262', cat: 'PRACTICE', bounty: 20, lang: 'sql',
   title: 'Trips and Users', kind: 'select', ordered: false,
   schema: [
     "members(member_id INT, banned VARCHAR, role VARCHAR)   -- banned is 'Yes' or 'No'",

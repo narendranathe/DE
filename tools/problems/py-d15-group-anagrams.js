@@ -1,7 +1,7 @@
 const { para } = require('../build_problems.js');
 
 module.exports = {
-  id: 'py-d15-group-anagrams', day: 15, anchor: 'Group Anagrams', cat: 'BUILD', bounty: 10, lang: 'python',
+  id: 'py-d15-group-anagrams', day: 15, lc: 'group-anagrams', anchor: 'Group Anagrams', cat: 'BUILD', bounty: 10, lang: 'python',
   title: 'Group Anagrams', kind: 'func', fn: 'group_anagrams', cmp: 'groups',
   signature: 'def group_anagrams(strs: list[str]) -> list[list[str]]',
   statement: para(

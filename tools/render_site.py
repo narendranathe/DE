@@ -29,8 +29,10 @@ PROBLEMS_JS = inline_js('problems.js')
 # The question bank (tools/problems -> tools/assets/problems.js). Each question is tied to one checkbox of its day.
 PROBLEMS = json.loads(asset('problems.js').split('=', 1)[1].rstrip().rstrip(';'))
 PROBLEMS_BY_DAY = {}
+PROBLEM_BY_LC = {}
 for _p in PROBLEMS:
     PROBLEMS_BY_DAY.setdefault(_p['day'], []).append(_p)
+    PROBLEM_BY_LC[_p['lc']] = _p
 
 
 def match_anchor(text, anchor):
@@ -646,24 +648,42 @@ def day_card(d, wk):
     console = []                   # groups the TODAY console rebuilds
     probs = []                     # bank questions found on this card: {id, key, cat, bounty}
 
+    LC_LINK = re.compile(r'<a [^>]*href="https://leetcode\.com/problems/([^"/]+)/?[^"]*"[^>]*>(.*?)</a>', re.S)
+
     def attach(fragment, cat):
-        """Put a SOLVE HERE button beside every checkbox whose link names a bank question of this day."""
+        """Every link to a LeetCode problem that has a question here opens that question. A checkbox that holds exactly
+        one such problem also gets a SOLVE HERE button. On the question's first day the box carries the bounty; on
+        any later day it is a review: the hints were paid for once, so it costs nothing again."""
         def sub(m):
             inner = m.group(1)
-            key, link = re.search(r'data-k="([\d.]+)"', inner), re.search(r'<a [^>]*>(.*?)</a>', inner, re.S)
-            if not key or not link:
+            key = re.search(r'data-k="([\d.]+)"', inner)
+            links = [(PROBLEM_BY_LC[a.group(1)], a) for a in LC_LINK.finditer(inner) if a.group(1) in PROBLEM_BY_LC]
+            if not key or len(links) != 1:
                 return m.group(0)
-            text = H.unescape(strip_tags(link.group(1))).strip()
-            for q in PROBLEMS_BY_DAY.get(n, []):
-                if match_anchor(text, q['anchor']):
-                    if q['cat'] != cat:
-                        raise SystemExit(f"{q['id']}: its checkbox is in {cat}, the question says {q['cat']}")
-                    probs.append({'id': q['id'], 'key': key.group(1), 'cat': q['cat'], 'bounty': q['bounty']})
-                    btn = (f'<button type="button" class="solve mono" data-p="{q["id"]}" '
-                           f'aria-label="Solve here: {H.escape(q["title"], quote=True)}">SOLVE HERE</button>')
-                    return f'<li class="check">{inner}{btn}</li>'
-            return m.group(0)
-        return re.sub(r'<li class="check">(.*?)</li>', sub, fragment, flags=re.S)
+            q, link = links[0]
+            text = H.unescape(strip_tags(link.group(2))).strip()
+            if q['bounty'] > 0 and q['day'] == n and match_anchor(text, q['anchor']):
+                if q['cat'] != cat:
+                    raise SystemExit(f"{q['id']}: its checkbox is in {cat}, the question says {q['cat']}")
+                probs.append({'id': q['id'], 'key': key.group(1), 'cat': q['cat'], 'bounty': q['bounty']})
+            else:
+                if not cat:
+                    return m.group(0)
+                probs.append({'id': q['id'], 'key': key.group(1), 'cat': cat, 'bounty': 0, 'review': True})
+            btn = (f'<button type="button" class="solve mono" data-p="{q["id"]}" '
+                   f'aria-label="Solve here: {H.escape(q["title"], quote=True)}">SOLVE HERE</button>')
+            return f'<li class="check">{inner}{btn}</li>'
+
+        def link(m):
+            q = PROBLEM_BY_LC.get(m.group(1))
+            if not q:
+                return m.group(0)
+            return (f'<a class="qlink" href="#p/{q["id"]}" data-p="{q["id"]}">{m.group(2)}</a> '
+                    f'<a class="lc" href="https://leetcode.com/problems/{m.group(1)}/" target="_blank" rel="noopener noreferrer" '
+                    'title="The same idea on LeetCode. Some LeetCode problems need a paid plan.">LC \u2197</a>')
+
+        out = re.sub(r'<li class="check">(.*?)</li>', sub, fragment, flags=re.S)
+        return LC_LINK.sub(link, out)
 
     def stamp(fragment, cat):
         """Give every checkbox in this fragment a stable key and file it by category."""
@@ -712,7 +732,9 @@ def day_card(d, wk):
 
     # every bank question of this day must have landed on exactly one checkbox
     for q in PROBLEMS_BY_DAY.get(n, []):
-        found = sum(1 for x in probs if x['id'] == q['id'])
+        if q['bounty'] == 0:
+            continue
+        found = sum(1 for x in probs if x['id'] == q['id'] and not x.get('review'))
         if found != 1:
             raise SystemExit(f"{q['id']}: anchor \"{q['anchor']}\" matched {found} checkboxes on day {n}, expected 1")
 
@@ -2155,7 +2177,10 @@ JS = r'''
 
   /* What the question workspace may touch. It cannot reach S directly. */
   window.DE={
-    problem:function(id){var out=null; days.forEach(function(n){(D[n].probs||[]).forEach(function(p){if(p.id===id)out={id:p.id,key:p.key,cat:p.cat,bounty:p.bounty,day:n}})}); return out},
+    // the box a question's XP is on (its first day). Repeats on later days are reviews and are found with slot().
+    problem:function(id){var out=null; days.forEach(function(n){(D[n].probs||[]).forEach(function(p){if(p.id===id&&!p.review&&!out)out={id:p.id,key:p.key,cat:p.cat,bounty:p.bounty,day:n}})}); return out},
+    // whatever question sits on one checkbox, review or not
+    slot:function(key){var out=null; days.forEach(function(n){(D[n].probs||[]).forEach(function(p){if(p.key===key)out={id:p.id,key:p.key,cat:p.cat,bounty:p.bounty,day:n,review:!!p.review}})}); return out},
     ws:function(){return S.ws},
     // quiet=true saves without repainting the day cards (used for draft saves while typing)
     setWs:function(w,quiet){S.ws=w; save(); if(!quiet)paint()},

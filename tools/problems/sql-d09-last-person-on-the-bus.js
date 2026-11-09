@@ -3,7 +3,7 @@ const out = (columns, rows) => ({ columns, rows });
 const queue = (rows) => tbl('queue', 'person_id INT, person_name VARCHAR, weight INT, turn INT', rows);
 
 module.exports = {
-  id: 'sql-d09-last-person-on-the-bus', day: 9, anchor: 'LC 1204', cat: 'PRACTICE', bounty: 20, lang: 'sql',
+  id: 'sql-d09-last-person-on-the-bus', day: 9, lc: 'last-person-to-fit-in-the-bus', anchor: 'LC 1204', cat: 'PRACTICE', bounty: 20, lang: 'sql',
   title: 'Last Person to Fit in the Bus', kind: 'select', ordered: false,
   schema: ['queue(person_id INT, person_name VARCHAR, weight INT, turn INT)   -- turn is unique'],
   statement: para(

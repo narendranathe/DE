@@ -1,7 +1,7 @@
 const { para } = require('../build_problems.js');
 
 module.exports = {
-  id: 'py-d16-container-with-most-water', day: 16, anchor: 'Container With Most Water', cat: 'BUILD', bounty: 10, lang: 'python',
+  id: 'py-d16-container-with-most-water', day: 16, lc: 'container-with-most-water', anchor: 'Container With Most Water', cat: 'BUILD', bounty: 10, lang: 'python',
   title: 'Container With Most Water', kind: 'func', fn: 'max_area', cmp: 'eq',
   signature: 'def max_area(height: list[int]) -> int',
   statement: para(

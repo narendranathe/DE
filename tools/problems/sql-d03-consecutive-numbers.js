@@ -3,7 +3,7 @@ const out = (columns, rows) => ({ columns, rows });
 const logs = (vals) => tbl('logs', 'id INT, num INT', vals.map((n, i) => [i + 1, n]));
 
 module.exports = {
-  id: 'sql-d03-consecutive-numbers', day: 3, anchor: 'LC 180', cat: 'PRACTICE', bounty: 20, lang: 'sql',
+  id: 'sql-d03-consecutive-numbers', day: 3, lc: 'consecutive-numbers', anchor: 'LC 180', cat: 'PRACTICE', bounty: 20, lang: 'sql',
   title: 'Consecutive Numbers', kind: 'select', ordered: false,
   schema: ['logs(id INT, num INT)   -- read the rows in order of id'],
   statement: para(

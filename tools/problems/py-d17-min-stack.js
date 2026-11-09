@@ -1,7 +1,7 @@
 const { para } = require('../build_problems.js');
 
 module.exports = {
-  id: 'py-d17-min-stack', day: 17, anchor: 'Min Stack', cat: 'BUILD', bounty: 10, lang: 'python',
+  id: 'py-d17-min-stack', day: 17, lc: 'min-stack', anchor: 'Min Stack', cat: 'BUILD', bounty: 10, lang: 'python',
   title: 'Min Stack', kind: 'class', cls: 'MinStack', cmp: 'eq',
   signature: 'class MinStack: push(val), pop(), top(), getMin()',
   statement: para(

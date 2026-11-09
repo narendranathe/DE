@@ -1,7 +1,7 @@
 const { para } = require('../build_problems.js');
 
 module.exports = {
-  id: 'py-d18-koko-eating-bananas', day: 18, anchor: 'Koko Eating Bananas', cat: 'BUILD', bounty: 10, lang: 'python',
+  id: 'py-d18-koko-eating-bananas', day: 18, lc: 'koko-eating-bananas', anchor: 'Koko Eating Bananas', cat: 'BUILD', bounty: 10, lang: 'python',
   title: 'Koko Eating Bananas', kind: 'func', fn: 'min_eating_speed', cmp: 'eq',
   signature: 'def min_eating_speed(piles: list[int], h: int) -> int',
   statement: para(

@@ -4,7 +4,7 @@ const stadium = (rows) => tbl('stadium', 'id INT, visit_date DATE, people INT', 
 const cols = ['id', 'visit_date', 'people'];
 
 module.exports = {
-  id: 'sql-d08-stadium-traffic', day: 8, anchor: 'LC 601', cat: 'PRACTICE', bounty: 20, lang: 'sql',
+  id: 'sql-d08-stadium-traffic', day: 8, lc: 'human-traffic-of-stadium', anchor: 'LC 601', cat: 'PRACTICE', bounty: 20, lang: 'sql',
   title: 'Human Traffic of Stadium', kind: 'select', ordered: true,
   schema: ['stadium(id INT, visit_date DATE, people INT)   -- id and visit_date are unique'],
   statement: para(

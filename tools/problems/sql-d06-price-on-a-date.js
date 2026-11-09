@@ -3,7 +3,7 @@ const out = (columns, rows) => ({ columns, rows });
 const changes = (rows) => tbl('price_changes', 'product_id INT, new_price INT, change_date DATE', rows.map((r) => [r[0], r[1], D(r[2])]));
 
 module.exports = {
-  id: 'sql-d06-price-on-a-date', day: 6, anchor: 'LC 1164', cat: 'PRACTICE', bounty: 20, lang: 'sql',
+  id: 'sql-d06-price-on-a-date', day: 6, lc: 'product-price-at-a-given-date', anchor: 'LC 1164', cat: 'PRACTICE', bounty: 20, lang: 'sql',
   title: 'Product Price at a Given Date', kind: 'select', ordered: false,
   schema: ['price_changes(product_id INT, new_price INT, change_date DATE)'],
   statement: para(

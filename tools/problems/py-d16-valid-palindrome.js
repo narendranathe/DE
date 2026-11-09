@@ -1,7 +1,7 @@
 const { para } = require('../build_problems.js');
 
 module.exports = {
-  id: 'py-d16-valid-palindrome', day: 16, anchor: 'Valid Palindrome', cat: 'BUILD', bounty: 10, lang: 'python',
+  id: 'py-d16-valid-palindrome', day: 16, lc: 'valid-palindrome', anchor: 'Valid Palindrome', cat: 'BUILD', bounty: 10, lang: 'python',
   title: 'Valid Palindrome', kind: 'func', fn: 'is_palindrome', cmp: 'eq',
   signature: 'def is_palindrome(s: str) -> bool',
   statement: para(
