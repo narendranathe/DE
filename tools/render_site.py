@@ -4,59 +4,94 @@ import json, os, re, html as H
 HERE = os.path.dirname(os.path.abspath(__file__))
 PLAN = json.loads(open(os.path.join(HERE, 'assets', 'plan.js')).read()
                   .split('=', 1)[1].rstrip().rstrip(';'))
-OUT = os.path.join(HERE, '..', 'docs', 'index.html')
+OUT = os.environ.get('DE_OUT') or os.path.join(HERE, '..', 'docs', 'index.html')
+
+
+def asset(name):
+    return open(os.path.join(HERE, 'assets', name), encoding='utf-8').read()
+
+
+def inline_js(name):
+    """A script that sits inside a <script> block must not hold anything that ends or hides the block."""
+    src = asset(name)
+    if '<!--' in src or re.search(r'<script', src, re.I):
+        raise SystemExit(f'{name}: contains "<!--" or "<script", which can break the page when inlined')
+    return re.sub(r'</(script)', r'<\\/\1', src, flags=re.I)
+
+
+PG_CSS = asset('playground.css')
+PG_JS = asset('playground.js')
+WS_CSS = asset('workspace.css')
+JUDGE_JS, CORE_JS, COMMUNITY_JS = inline_js('judge.js'), inline_js('workspace-core.js'), inline_js('community.js')
+RUNTIME_JS, WS_JS = inline_js('judge-runtime.js'), inline_js('workspace.js')
+PROBLEMS_JS = inline_js('problems.js')
+
+# The question bank (tools/problems -> tools/assets/problems.js). Each question is tied to one checkbox of its day.
+PROBLEMS = json.loads(asset('problems.js').split('=', 1)[1].rstrip().rstrip(';'))
+PROBLEMS_BY_DAY = {}
+PROBLEM_BY_LC = {}
+for _p in PROBLEMS:
+    PROBLEMS_BY_DAY.setdefault(_p['day'], []).append(_p)
+    PROBLEM_BY_LC[_p['lc']] = _p
+
+
+def match_anchor(text, anchor):
+    """Same rule as WorkspaceCore.matchAnchor: the link text is the anchor, or the anchor then a dash and a title."""
+    t, a = (text or '').strip(), (anchor or '').strip()
+    return bool(t and a) and (t == a or t.startswith(a + ' \u2014'))
 
 DONE_THRU, TODAY = 0, 1          # ships blank: a new reader starts at Day 1
 TOTAL = 84
 
 THEMES = {
-    1:  ('PRODUCTION PYTHON',        'Sentinel-Lite'),
-    2:  ('TESTS · ASYNC · RESILIENCE','Sentinel-Lite'),
-    3:  ('DSA PATTERN RECOGNITION',  'drills'),
-    4:  ('LAKEHOUSE FOUNDATIONS',    'iceberg-lakehouse-lab'),
-    5:  ('SPARK · DBT · GOVERNANCE', 'iceberg-lakehouse-lab'),
-    6:  ('DISTRIBUTED SYSTEMS',      'theory + drills'),
-    7:  ('RAG · VECTOR · EVAL',      'rag-eval-service'),
-    8:  ('LLMOPS · AGENTS',          'ai-serving-platform'),
-    9:  ('CAPSTONE PT.1 — THE SLICE','ai-ready-lakehouse'),
-    10: ('CAPSTONE PT.2 — HARDEN',   'ai-ready-lakehouse'),
-    11: ('CAPSTONE PT.3 — SELF-HEAL','ai-ready-lakehouse'),
-    12: ('MOCKS · OUTREACH',         'convert'),
+    1:  ('SQL · DATA MODELING',      'sql-lab'),
+    2:  ('PRODUCTION PYTHON',        'Sentinel-Lite'),
+    3:  ('DSA PATTERNS',             'drills'),
+    4:  ('LAKEHOUSE · SPARK',        'iceberg-lakehouse-lab'),
+    5:  ('DBT · AIRFLOW · GOVERN',   'iceberg-lakehouse-lab'),
+    6:  ('DATA SYSTEM DESIGN',       'designs'),
+    7:  ('LLM FUNDAMENTALS',         'llm-lab'),
+    8:  ('RAG · EVALS',              'rag-eval-service'),
+    9:  ('AGENTS · LLMOPS · COST',   'llm-lab'),
+    10: ('CAPSTONE PT.1 — THE SLICE','ai-ready-lakehouse'),
+    11: ('CAPSTONE PT.2 — SHIP',     'ai-ready-lakehouse'),
+    12: ('MOCKS · CONVERSION',       'convert'),
 }
 
-ARC = [('W1–2',  'Sentinel-Lite',        'reconciliation service — typed, tested, resilient', 'today'),
-       ('W4–5',  'iceberg-lakehouse-lab','CDC → Iceberg, Spark + dbt on top',                'next'),
-       ('W7',    'rag-eval-service',     'retrieval with an eval gate that blocks deploys',  'next'),
-       ('W8',    'ai-serving-platform',  'registry, drift, tracing, one agent',              'next'),
-       ('W9–11', 'ai-ready-lakehouse',   'the capstone — all of it, self-healing',           'next')]
+ARC = [('W1–2',  'sql-lab + Sentinel-Lite', 'a SQL warehouse, then a typed, tested service',  'today'),
+       ('W4–5',  'iceberg-lakehouse-lab',   'CDC → Iceberg, with Spark, dbt and Airflow on top', 'next'),
+       ('W7',    'llm-lab',                 'a tested LLM feature behind an API contract',       'next'),
+       ('W8',    'rag-eval-service',        'retrieval with an eval gate that blocks deploys',   'next'),
+       ('W10–11','ai-ready-lakehouse',      'the capstone: all of it, self-healing',             'next')]
 
 # the fixed ritual, in order; each day's blocks are sorted onto these slots
 RITUAL = [
+    ('REVIEW',       '15 min &middot; old material, from memory'),
     ('CONCEPT',      'what &amp; why engineers use it'),
     ('ALTERNATIVES', 'and when to pick each'),
-    ('ROADBLOCK',    'the wall everyone hits'),
-    ('FIX',          'what the field settled on'),
-    ('READ',         'source + what to extract'),
-    ('BUILD &amp; SAVE', 'the real test — git commit = checkpoint'),
-    ('SQL REPS',     'keep the query muscle warm'),
+    ('ROADBLOCK → FIX', 'the wall everyone hits, and the fix'),
+    ('READ',         'two sources &middot; with the concept, a 20-min learn block'),
+    ('BUILD &amp; SAVE', '55 min &middot; the real test, git commit = checkpoint'),
+    ('PRACTICE',     '15 min &middot; one timed SQL or algorithm rep'),
     ('DONE WHEN',    'the cutoff checklist'),
-    ('RECALL',       'boss check, book closed'),
+    ('RECALL',       '15 min &middot; boss check, book closed'),
 ]
 
 SLOT = [
+    (r'^review',                                     'REVIEW'),
     (r'roadblock',                                   'ROADBLOCK → FIX'),
     (r'alternativ|when to pick|how to identify',     'ALTERNATIVES'),
     (r'^the concept|^what the pattern|^what you|^why today|^the week', 'CONCEPT'),
     (r'^read',                                       'READ'),
     (r'build|solve &amp; narrate|solve & narrate|do &amp; log|do & log|the arena', 'BUILD & SAVE'),
-    (r'^sql reps',                                   'SQL REPS'),
+    (r'^practice reps',                              'PRACTICE'),
     (r'^done when',                                  'DONE WHEN'),
     (r'^recall',                                     'RECALL'),
     (r'^reward',                                     'REWARD'),
     (r'key ideas|hints|sql bridge|thought process',  'NOTES'),
 ]
-ORDER = ['CONCEPT', 'ALTERNATIVES', 'ROADBLOCK → FIX', 'NOTES', 'READ',
-         'BUILD & SAVE', 'SQL REPS', 'DONE WHEN', 'RECALL', 'REWARD']
+ORDER = ['REVIEW', 'CONCEPT', 'ALTERNATIVES', 'ROADBLOCK → FIX', 'NOTES', 'READ',
+         'BUILD & SAVE', 'PRACTICE', 'DONE WHEN', 'RECALL', 'REWARD']
 
 def slot_of(label):
     l = (label or '').lower()
@@ -65,12 +100,13 @@ def slot_of(label):
             return name
     return 'NOTES'
 
-CATS = [(r'^sql reps|sql bridge', 'SQL'),
+CATS = [(r'^review', 'REVIEW'),
+        (r'^practice reps', 'PRACTICE'),
         (r'^recall', 'RECALL'),
         (r'^read', 'READ'),
         (r'^done when|build|solve|do &amp; log|do & log|the arena', 'BUILD')]
 
-CAT_XP = {'READ': 30, 'BUILD': 50, 'SQL': 20, 'RECALL': 25}
+CAT_XP = {'REVIEW': 20, 'READ': 30, 'BUILD': 50, 'PRACTICE': 20, 'RECALL': 25}
 BONUS = 25
 
 def cat_of(label):
@@ -94,6 +130,27 @@ def stated_max(sections):
             if m:
                 return int(m.group(1))
     return None
+
+
+def day_of(n):
+    for w in PLAN['weeks']:
+        for d in w['days']:
+            if d['day'] == n:
+                return d
+    raise KeyError(n)
+
+
+def wk_of(n):
+    return (n - 1) // 7 + 1
+
+
+def total_checks():
+    t = 0
+    for w in PLAN['weeks']:
+        for d in w['days']:
+            t += d['checkCount']
+            t += any((sec['label'] or '').lower().startswith('read') for sec in d['sections'])
+    return t
 
 
 def status_of(n):
@@ -169,39 +226,96 @@ def console_panel():
       <div class="t-b prose" id="conTarget"></div></div>
     <div class="con-xp">
       <div class="con-rail"><i id="conRail"></i></div>
-      <div class="con-xp-t mono"><span id="conXp">0 / 150 XP</span>
-        <span class="sep">/</span><span id="conChecks">0 OF 7 TICKED</span></div>
+      <div class="con-xp-t mono"><span id="conXp">0 / 170 XP</span>
+        <span class="sep">/</span><span id="conChecks">0 TICKED</span></div>
     </div>
     <div class="con-groups" id="conGroups"></div>
     <div class="con-foot mono">
-      <a id="conOpen" href="#d8">OPEN THE FULL CARD IN THE LOG ↓</a>
+      <a id="conOpen" href="#d1">OPEN THE FULL CARD IN THE LOG ↓</a>
+      <a href="#playground">TRY CODE IN THE PLAYGROUND ↓</a>
       <span class="con-kbd">← → TO MOVE BETWEEN DAYS</span>
     </div>
   </div>
 </section>'''
 
 
+def playground_panel():
+    return """
+<section id="playground" class="sec">
+  <h2 class="sec-h"><span class="sec-n mono">07</span> PLAYGROUND</h2>
+  <div class="sec-sub mono">PYTHON AND SQL / FREE / RUNS IN YOUR BROWSER / NO SIGN-IN, NO SERVER</div>
+  <div class="pg" id="pg">
+    <div class="pg-bar">
+      <div class="pg-tabs" role="tablist" aria-label="Language">
+        <button type="button" class="pg-tab" id="pgTabPy" role="tab" aria-selected="true">PYTHON</button>
+        <button type="button" class="pg-tab" id="pgTabSql" role="tab" aria-selected="false">SQL</button>
+      </div>
+      <div class="pg-tools">
+        <select id="pgEx" class="mono" aria-label="Load an example"></select>
+        <button type="button" class="pg-btn" id="pgSeed" hidden title="Create customers, orders, order_items, events and activity">LOAD SAMPLE WAREHOUSE</button>
+        <button type="button" class="pg-btn" id="pgTables" hidden>SHOW TABLES</button>
+        <button type="button" class="pg-btn" id="pgStop" hidden>RESET PYTHON</button>
+        <button type="button" class="pg-btn run" id="pgRun" title="Ctrl or Cmd + Enter">&#9654; RUN</button>
+      </div>
+    </div>
+    <textarea id="pgEd" spellcheck="false" autocapitalize="off" autocomplete="off" autocorrect="off"
+      aria-label="Code editor"></textarea>
+    <div class="pg-status mono" id="pgStatus" role="status" aria-live="polite"></div>
+    <div class="pg-out" id="pgOut" aria-live="polite"></div>
+    <div class="pg-foot mono">
+      <span>CTRL / &#8984; + ENTER RUNS <span class="sep">/</span> ESC THEN TAB LEAVES THE EDITOR</span>
+      <button type="button" id="pgClear">CLEAR OUTPUT</button>
+    </div>
+  </div>
+  <details class="pg-notes">
+    <summary>HOW IT WORKS, AND WHAT IT CANNOT DO</summary>
+    <div class="pg-notes-b">
+      <ul>
+        <li><b>Python</b> is CPython compiled to WebAssembly (Pyodide). It starts the first time you press RUN, in a
+          background worker, so <b>RESET PYTHON</b> or <b>STOP</b> ends a runaway loop without freezing the page.
+          Variables stay between runs until you reset. Top-level <code>await</code> works.</li>
+        <li><b>Packages:</b> the standard library, <code>pydantic</code>, <code>pytest</code>, <code>numpy</code>,
+          <code>pandas</code>, <code>sqlite3</code> and most other popular libraries load by name when you import them.
+          For a pure-Python package from PyPI, put <code># pip: name</code> on the first line.</li>
+        <li><b>SQL</b> is DuckDB, also compiled to WebAssembly. It matches the DuckDB used in the sql-lab repo, so
+          <code>QUALIFY</code>, window frames, <code>generate_series</code> and <code>EXPLAIN ANALYZE</code> work.
+          <b>LOAD SAMPLE WAREHOUSE</b> builds five small tables with planted problems: duplicates, NULLs and orphan keys.
+          The data lives in memory and is gone when you reload.</li>
+        <li><b>Not here:</b> <code>requests</code> and <code>urllib</code> calls (a browser has no raw sockets),
+          <code>input()</code>, threads, subprocesses, your local files, Spark, Airflow and dbt. Do the real build in
+          your repo; use this to try an idea in one minute.</li>
+        <li><b>Download:</b> each runtime is roughly 10 MB the first time, from a public CDN
+          (jsDelivr), then your browser caches it. Your code stays in this browser only.</li>
+        <li><b>Try it from a card:</b> every Python and SQL code block in the day cards and cheat sheets has a
+          <b>TRY IN PLAYGROUND</b> button that copies it into the editor.</li>
+      </ul>
+    </div>
+  </details>
+</section>"""
+
+
 def program_arc():
-    arc = [('W1\u20132', 'Production Python', 'typed, tested, resilient, observable'),
-           ('W3', 'DSA pattern recognition', 'constraints \u2192 pattern \u2192 solution'),
-           ('W4', 'Iceberg lakehouse', 'table formats, ACID, time travel, CDC'),
-           ('W5', 'Spark \u00b7 dbt \u00b7 governance', 'the processing and modelling layer'),
-           ('W6', 'Distributed systems', 'the vocabulary that separates senior from mid'),
-           ('W7', 'RAG + evaluation', 'retrieval you can actually measure'),
-           ('W8', 'LLMOps + agents', 'registry, drift, tracing, guardrails'),
-           ('W9\u201311', 'The capstone', 'an AI-ready lakehouse that heals itself'),
-           ('W12', 'Mocks + outreach', 'convert the build into interviews')]
+    arc = [('W1', 'SQL + data modeling', 'the most-tested skill goes first'),
+           ('W2', 'Production Python', 'typed, tested, resilient, observable'),
+           ('W3', 'DSA patterns', 'trigger \u2192 pattern \u2192 complexity'),
+           ('W4\u20135', 'Lakehouse, Spark, dbt', 'table formats, CDC, Airflow, governance'),
+           ('W6', 'Data system design', 'consistency, partitioning, delivery, failure'),
+           ('W7', 'LLM fundamentals', 'tokens, attention, API contracts'),
+           ('W8', 'RAG + evals', 'retrieval and answers you can measure'),
+           ('W9', 'Agents + LLMOps', 'tracing, guardrails, cost, drift'),
+           ('W10\u201311', 'The capstone', 'an AI-ready lakehouse that heals itself'),
+           ('W12', 'Mocks + conversion', 'turn the build into interviews')]
     cells = ''.join(
         f'<div class="pa-cell"><div class="pa-w mono">{w}</div>'
         f'<div class="pa-t">{t}</div><div class="pa-d">{d}</div></div>' for w, t, d in arc)
     return f'''
 <section id="arc" class="sec">
-  <h2 class="sec-h"><span class="sec-n mono">08</span> THE WHOLE ARC</h2>
+  <h2 class="sec-h"><span class="sec-n mono">09</span> THE WHOLE ARC</h2>
   <div class="sec-sub mono">TWELVE WEEKS END TO END <span class="sep">/</span>
-    FIVE SHIPPED REPOS <span class="sep">/</span> ONE STANDOUT CAPSTONE</div>
+    SIX PUBLIC REPOS <span class="sep">/</span> ONE STANDOUT CAPSTONE</div>
   <div class="pa-grid">{cells}</div>
-  <p class="pa-note">Finish it and you have five public repos, a capstone that runs end to end,
-    and pattern recognition at reflex speed \u2014 whatever background you started from. What the
+  <p class="pa-note">Finish it and you have six public repos, a capstone that runs end to end,
+    and a review habit that keeps all of it retrievable \u2014 whatever background you started from. What the
     portfolio says about you is yours to frame; the build stands on its own.</p>
 </section>'''
 
@@ -209,7 +323,7 @@ def program_arc():
 def backup_panel():
     return '''
 <section id="backup" class="sec">
-  <h2 class="sec-h"><span class="sec-n mono">09</span> STATE</h2>
+  <h2 class="sec-h"><span class="sec-n mono">10</span> STATE</h2>
   <div class="sec-sub mono">PROGRESS LIVES IN THIS BROWSER / EXPORT BEFORE A REDEPLOY</div>
   <div class="backup">
     <div class="bk-row">
@@ -235,15 +349,15 @@ def masthead():
   <div class="mh-l">
     <div class="kicker" id="mhKicker">DAILY EXECUTOR <span class="sep">/</span> 12-WEEK ENGINEERING PROGRAM</div>
     <h1 id="mhTitle">AI + Data + Lakehouse Engineer</h1>
-    <p class="mission">One page. Open it, find today, do the card, tick the boxes. Every day teaches
-      the topic before it tests you — what it is and why engineers use it, the alternatives, the classic
-      roadblock and its fix — then makes you build it. A git commit is the checkpoint; the recall check,
-      book closed, is the boss. From wherever you are now to a shipped portfolio.</p>
+    <p class="mission">One page. Open it, find today, do the card, tick the boxes. Every day is two
+      hours: a 15-minute review of older material from memory, one concept taught before it tests you,
+      a build, one timed practice rep and a closed-book recall. A git commit is the checkpoint. The
+      review loop is what keeps week 1 in your head in week 12.</p>
     <div class="mh-role mono" id="mhRole"></div>
   </div>
   <div class="mh-r mono">
     <div class="mh-now">DAY {TODAY} / {TOTAL}</div>
-    <div class="mh-sub">WEEK 2 &middot; PRODUCTION PYTHON PT.2</div>
+    <div class="mh-sub">WEEK {wk_of(TODAY)} &middot; {THEMES[wk_of(TODAY)][0]}</div>
     <div class="mh-sub" id="mhStreak">STREAK {DONE_THRU} \U0001f525</div>
   </div>
 </header>'''
@@ -251,14 +365,14 @@ def masthead():
 
 def jumpstrip():
     items = [('#status', 'STATUS'), ('#position', 'THE 84'), ('#weeks', 'WEEKS'),
-             ('#ritual', 'RITUAL'), ('#xp', 'XP &amp; REWARDS'), ('#resources', 'RESOURCES'),
-             ('#cheats', 'CHEAT SHEETS'), ('#days', 'ALL 84 DAYS'), ('#arc', 'THE ARC'),
+             ('#ritual', 'RITUAL'), ('#xp', 'XP'), ('#resources', 'RESOURCES'),
+             ('#cheats', 'CHEATS'), ('#playground', 'PLAYGROUND'), ('#days', 'ALL 84 DAYS'), ('#arc', 'THE ARC'),
              ('#backup', 'STATE')]
     items = [('#today', 'TODAY')] + items
     tabs = ''.join(f'<a class="jt" href="{h}">{t}</a>' for h, t in items)
-    live = ('<div class="jt-live mono"><span id="liveDay">DAY 8</span>'
-            '<span class="sep">/</span><span id="liveXp">1,050 XP</span>'
-            '<span class="sep">/</span><span id="liveStreak">7 \U0001f525</span></div>')
+    live = ('<div class="jt-live mono"><span id="liveDay">DAY 1</span>'
+            '<span class="sep">/</span><span id="liveXp">0 XP</span>'
+            '<span class="sep">/</span><span id="liveStreak">0 \U0001f525</span></div>')
     toggle = ('<button type="button" class="jt-theme mono" id="themeBtn" aria-pressed="false">'
               '<span class="tg-g">\u25d0</span><span id="themeLbl">DARK</span></button>'
               '<button type="button" class="jt-theme jt-gear" id="gearBtn" '
@@ -283,8 +397,8 @@ def stats():
       <i style="width:{d / TOTAL * 100:.4f}%"></i><b style="left:{TODAY / TOTAL * 100:.4f}%"></b>
     </div>
     <div class="prog-meta mono"><b>{pct}% OF PROGRAM COMPLETE</b> <span class="sep">/</span>
-      {DONE_THRU} OF {TOTAL} DAYS <span class="sep">/</span> 50 OF 482 CHECKS
-      <span class="sep">/</span> 1,050 XP BANKED</div>
+      {DONE_THRU} OF {TOTAL} DAYS <span class="sep">/</span> 0 OF {total_checks()} CHECKS
+      <span class="sep">/</span> 0 XP BANKED</div>
   </div>
 </section>'''
 
@@ -296,7 +410,7 @@ def arc_band():
         f'<div class="arc-n mono">{n}</div><div class="arc-d">{d}</div></div>'
         for w, n, d, st in ARC)
     return f'''
-  <div class="subhead mono">THE RUNNING BUILD <span class="sep">/</span> one arc, five repos, each feeding the next</div>
+  <div class="subhead mono">THE RUNNING BUILD <span class="sep">/</span> one arc, each repo feeding the next</div>
   <div class="arc">{cells}</div>'''
 
 
@@ -312,8 +426,8 @@ def week_cards():
                  f'{GLYPH["today"]} {done}/7 DONE' if st == 'today' else
                  f'{GLYPH["next"]} UPCOMING')
         theme, repo = THEMES[n]
-        cap = ' <span class="cap-tag mono">CAPSTONE</span>' if n in (9, 10, 11) else ''
-        if n == 9:
+        cap = ' <span class="cap-tag mono">CAPSTONE</span>' if n in (10, 11) else ''
+        if n == 10:
             cards += ('<div class="cap-group" id="capGroup">'
                       '<div class="cap-bracket"><span class="cap-lbl mono">ONE CAPSTONE</span></div>'
                       '<div class="cap-cards">')
@@ -338,7 +452,7 @@ def week_cards():
     return f'''
 <section id="weeks" class="sec">
   <h2 class="sec-h"><span class="sec-n mono">02</span> WEEK BY WEEK</h2>
-  <div class="sec-sub mono">TWELVE PHASES <span class="sep">/</span> W9–11 ARE ONE CONNECTED CAPSTONE</div>
+  <div class="sec-sub mono">TWELVE PHASES <span class="sep">/</span> W10–11 ARE ONE CONNECTED CAPSTONE</div>
   {arc_band()}
   <div class="wk-grid">{cards}</div>
 </section>'''
@@ -383,8 +497,8 @@ def punchcard():
         <div class="here-l mono">YOU ARE HERE</div>
         <div class="here-m">
           <div class="here-day mono">DAY {TODAY}</div>
-          <div class="here-t">pytest: fixtures, parametrize, structure</div>
-          <div class="here-s mono">WEEK 2 <span class="sep">/</span> LEVEL {TODAY}
+          <div class="here-t">{strip_tags(day_of(TODAY)["title"])}</div>
+          <div class="here-s mono">WEEK {wk_of(TODAY)} <span class="sep">/</span> LEVEL {TODAY}
             <span class="sep">/</span> 0 OF 7 CHECKS TICKED</div>
         </div>
         <a class="here-go mono" href="#d{TODAY}">OPEN TODAY’S CARD →</a>
@@ -410,18 +524,21 @@ def ritual():
     return f'''
 <section id="ritual" class="sec">
   <h2 class="sec-h"><span class="sec-n mono">03</span> THE DAILY RITUAL</h2>
-  <div class="sec-sub mono">NINE STEPS <span class="sep">/</span> EVERY CARD, EVERY DAY, NO EXCEPTIONS</div>
+  <div class="sec-sub mono">NINE STEPS <span class="sep">/</span> TWO HOURS <span class="sep">/</span> EVERY CARD, EVERY DAY</div>
   <div class="loop-strip">{cells}</div>
   <p class="ritual-note">The order is the point. You read only after you know why the thing exists, you
     build only after you know what breaks, and the day does not close until you can say it back with the
-    book shut. A day is <em>cleared</em> when its tests pass and the commit lands — not when you have read it.</p>
+    book shut. The day opens with a review because pulling old material out of memory, a little later each
+    time, is what makes it last. A day is <em>cleared</em> when its tests pass and the commit lands — not when
+    you have read it.</p>
 </section>'''
 
 
 def xp_panel():
-    rows = [('read', 'READ &amp; UNDERSTOOD', '+30', 'per source, extract stated'),
+    rows = [('review', 'REVIEW FROM MEMORY', '+20', 'answered before looking anything up'),
+            ('read', 'READ &amp; UNDERSTOOD', '+30', 'per source, extract stated (no reading on boss and capstone build days)'),
             ('build', 'BUILD / LEVEL CLEARED', '+50', 'tests pass, commit lands'),
-            ('sql', 'SQL REPS', '+20', 'both accepted'),
+            ('practice', 'PRACTICE REP', '+20', 'timed, miss logged in error-log.md'),
             ('recall', 'RECALL BOSS CHECK', '+25', 'book closed, said aloud'),
             ('perfect', 'PERFECT DAY BONUS', '+25', 'every box on the card')]
     tr = ''.join(
@@ -429,8 +546,8 @@ def xp_panel():
         f'<td>{d}</td><td><span class="xp-state mono open" data-xprow="{i}">○ LOCKED</span></td></tr>'
         for i, k, v, d in rows)
     tr += ('<tr class="total"><td class="mono">PERFECT DAY TOTAL</td>'
-           '<td class="mono val">150</td><td>the ceiling</td>'
-           '<td><span class="xp-state mono open" data-xprow="total">0 / 150</span></td></tr>')
+           '<td class="mono val">170</td><td>the ceiling (140 on days with no reading)</td>'
+           '<td><span class="xp-state mono open" data-xprow="total">0 / 170</span></td></tr>')
     ms = [('s7', '7-DAY STREAK', 'DAY 7'), ('s14', '14-DAY STREAK', 'DAY 14'),
           ('week', 'FINISH ANY WEEK (7/7)', 'W1 7/7'), ('ship', 'SHIP THE CAPSTONE', 'DAY 77')]
     mrows = ''.join(
@@ -452,7 +569,7 @@ def xp_panel():
       <tbody>{tr}</tbody></table>
     </div>
     <div class="xp-side">
-      <div class="xp-big"><div class="xp-num" id="xpBank">1,050</div>
+      <div class="xp-big"><div class="xp-num" id="xpBank">0</div>
         <div class="lbl mono">XP BANKED</div></div>
       <div class="xp-big"><div class="xp-num" id="xpStreak">{DONE_THRU}<span class="fire">\U0001f525</span></div>
         <div class="lbl mono">DAY STREAK</div></div>
@@ -500,7 +617,7 @@ STAR_SLOTS = [
 
 
 def star_bank():
-    """Day 80 asks for six STAR stories. The program supplies the prompts; the
+    """Day 82 asks for six STAR stories. The program supplies the prompts; the
     reader supplies the stories. Slots start empty on purpose."""
     rows = ''.join(
         f'<div class="star-slot"><div class="ss-h mono"><span class="ss-n">{i:02d}</span>'
@@ -527,8 +644,46 @@ def day_card(d, wk):
         blocks.setdefault(slot_of(sec['label']), []).append(sec)
 
     idx = [0]                      # per-day running checkbox index
-    cats = {'READ': [], 'BUILD': [], 'SQL': [], 'RECALL': []}
+    cats = {'REVIEW': [], 'READ': [], 'BUILD': [], 'PRACTICE': [], 'RECALL': []}
     console = []                   # groups the TODAY console rebuilds
+    probs = []                     # bank questions found on this card: {id, key, cat, bounty}
+
+    LC_LINK = re.compile(r'<a [^>]*href="https://leetcode\.com/problems/([^"/]+)/?[^"]*"[^>]*>(.*?)</a>', re.S)
+
+    def attach(fragment, cat):
+        """Every link to a LeetCode problem that has a question here opens that question. A checkbox that holds exactly
+        one such problem also gets a SOLVE HERE button. On the question's first day the box carries the bounty; on
+        any later day it is a review: the hints were paid for once, so it costs nothing again."""
+        def sub(m):
+            inner = m.group(1)
+            key = re.search(r'data-k="([\d.]+)"', inner)
+            links = [(PROBLEM_BY_LC[a.group(1)], a) for a in LC_LINK.finditer(inner) if a.group(1) in PROBLEM_BY_LC]
+            if not key or len(links) != 1:
+                return m.group(0)
+            q, link = links[0]
+            text = H.unescape(strip_tags(link.group(2))).strip()
+            if q['bounty'] > 0 and q['day'] == n and match_anchor(text, q['anchor']):
+                if q['cat'] != cat:
+                    raise SystemExit(f"{q['id']}: its checkbox is in {cat}, the question says {q['cat']}")
+                probs.append({'id': q['id'], 'key': key.group(1), 'cat': q['cat'], 'bounty': q['bounty']})
+            else:
+                if not cat:
+                    return m.group(0)
+                probs.append({'id': q['id'], 'key': key.group(1), 'cat': cat, 'bounty': 0, 'review': True})
+            btn = (f'<button type="button" class="solve mono" data-p="{q["id"]}" '
+                   f'aria-label="Solve here: {H.escape(q["title"], quote=True)}">SOLVE HERE</button>')
+            return f'<li class="check">{inner}{btn}</li>'
+
+        def link(m):
+            q = PROBLEM_BY_LC.get(m.group(1))
+            if not q:
+                return m.group(0)
+            return (f'<a class="qlink" href="#p/{q["id"]}" data-p="{q["id"]}">{m.group(2)}</a> '
+                    f'<a class="lc" href="https://leetcode.com/problems/{m.group(1)}/" target="_blank" rel="noopener noreferrer" '
+                    'title="The same idea on LeetCode. Some LeetCode problems need a paid plan.">LC \u2197</a>')
+
+        out = re.sub(r'<li class="check">(.*?)</li>', sub, fragment, flags=re.S)
+        return LC_LINK.sub(link, out)
 
     def stamp(fragment, cat):
         """Give every checkbox in this fragment a stable key and file it by category."""
@@ -552,6 +707,7 @@ def day_card(d, wk):
             hh = deglyph(sec['html'])
             cat = cat_of(sec['label'])
             hh, keys = stamp(hh, cat)
+            hh = attach(hh, cat)
 
             # the READ step is part of the ritual but carries no box in the source —
             # give it one so the 30 XP it is worth is actually claimable
@@ -574,11 +730,21 @@ def day_card(d, wk):
                      f'<span class="step-n">{step:02d}</span>{H.escape(label)}</div>'
                      f'<div class="step-b prose">{hh}</div></div>')
 
+    # every bank question of this day must have landed on exactly one checkbox
+    for q in PROBLEMS_BY_DAY.get(n, []):
+        if q['bounty'] == 0:
+            continue
+        found = sum(1 for x in probs if x['id'] == q['id'] and not x.get('review'))
+        if found != 1:
+            raise SystemExit(f"{q['id']}: anchor \"{q['anchor']}\" matched {found} checkboxes on day {n}, expected 1")
+
     derived = sum(CAT_XP[c] for c in cats if cats[c]) + BONUS
     maxxp = stated_max(d['sections']) or derived
     DAYDATA[n] = {'t': H.unescape(deglyph(strip_tags(d['title']))), 'w': wk['week'], 'boss': d['boss'],
                   'target': deglyph(d['target']), 'cats': {c: v for c, v in cats.items() if v},
                   'max': maxxp, 'groups': console}
+    if probs:
+        DAYDATA[n]['probs'] = probs
 
     boss = '<span class="boss-tag mono">BOSS LEVEL</span>' if d['boss'] else ''
     return f'''
@@ -591,7 +757,7 @@ def day_card(d, wk):
         </div>
         {f'<div class="target"><span class="t-l mono">CUTOFF TARGET</span><div class="t-b prose">{deglyph(d["target"])}</div></div>' if d['target'] else ''}
         <div class="steps">{body}</div>
-        {star_bank() if n == 80 else ''}
+        {star_bank() if n == 82 else ''}
       </article>'''
 
 
@@ -617,8 +783,8 @@ def all_days():
     </div>'''
     return f'''
 <section id="days" class="sec">
-  <h2 class="sec-h"><span class="sec-n mono">07</span> ALL 84 DAYS</h2>
-  <div class="sec-sub mono">EVERY CARD IN FULL <span class="sep">/</span> DAYS 1–7 SHOWN CLEARED</div>
+  <h2 class="sec-h"><span class="sec-n mono">08</span> ALL 84 DAYS</h2>
+  <div class="sec-sub mono">EVERY CARD IN FULL <span class="sep">/</span> OPEN ANY DAY</div>
   {out}
 </section>'''
 
@@ -760,7 +926,7 @@ h1,h2,h3,h4{margin:0;text-wrap:balance}
 .jumpstrip{position:sticky;top:0;z-index:30;background:var(--chrome);display:flex;
   overflow-x:auto;white-space:nowrap;scrollbar-width:none}
 .jumpstrip::-webkit-scrollbar{display:none}
-.jt{padding:11px 17px;font-size:10.5px;letter-spacing:.13em;color:#b6b3ab;text-decoration:none;
+.jt{padding:11px 13px;font-size:10.5px;letter-spacing:.13em;color:#b6b3ab;text-decoration:none;
   border-right:1px solid #2c2f36;flex-shrink:0}
 .jt:hover{background:#2c3037;color:#fff}
 
@@ -1306,7 +1472,8 @@ JS = r'''
 (function(){
   'use strict';
   var D=window.DAYS, TOTAL=__TOTAL__, SEED=__SEED__;
-  var XP={READ:30,BUILD:50,SQL:20,RECALL:25}, BONUS=25, KEY='daily-executor.v3';
+  var XP={REVIEW:20,READ:30,BUILD:50,PRACTICE:20,RECALL:25}, BONUS=25, KEY='daily-executor.v4';
+  var WC=window.WorkspaceCore, JD=window.Judge;   // question rules: hints, XP cost, saved attempts
   var $=function(i){return document.getElementById(i)};
   function esc(s){return String(s).replace(/[&<>"]/g,function(c){
     return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]})}
@@ -1410,9 +1577,9 @@ JS = r'''
     var s=null;
     try{s=JSON.parse(localStorage.getItem(KEY))}catch(e){}
     if(s&&s.checks)return{checks:s.checks||{},log:s.log||{},rewards:s.rewards||{},star:s.star||{},
-      started:s.started||today()};
+      started:s.started||today(),ws:WC.normalizeWs(s.ws)};
     // ships blank: no progress, no streak, day 1 -- ready for a stranger
-    return {checks:{},log:{},rewards:{},star:{},started:today()};
+    return {checks:{},log:{},rewards:{},star:{},started:today(),ws:WC.emptyWs()};
   }
   function save(){try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}}
   function on(k){return !!S.checks[k]}
@@ -1429,7 +1596,14 @@ JS = r'''
     var done=has>0&&all;
     if(done)earned=D[n].max;           // cleared: the plan's own stated ceiling
     else if(earned>D[n].max)earned=D[n].max;
-    return{xp:earned,max:D[n].max,done:done,ticked:tick,total:tot};
+    // hints cost XP, but only where the question's category is fully earned, and never below 0
+    var pen=0;
+    if(D[n].probs){
+      var fullCat={};
+      for(var kc in c)fullCat[kc]=c[kc].every(on);
+      pen=JD.penaltyFor(D[n].probs,S.ws.hints,fullCat);
+    }
+    return{xp:JD.applyPenalty(earned,pen),pen:pen,max:D[n].max,done:done,ticked:tick,total:tot};
   }
   function totals(){
     var xp=0,done=0,tick=0,tot=0;
@@ -1496,7 +1670,7 @@ JS = r'''
   function paintConsole(){
     if(view==null)return;
     var s=score(view);
-    $('conXp').textContent=s.xp+' / '+s.max+' XP';
+    $('conXp').textContent=WC.xpLabel(s.xp,s.max,s.pen);
     $('conChecks').textContent=s.ticked+' OF '+s.total+' TICKED';
     $('conRail').style.width=(s.total?s.ticked/s.total*100:0)+'%';
     $('conRail').className=s.done?'full':'';
@@ -1566,7 +1740,7 @@ JS = r'''
     // per-day XP chips + week tallies in the log
     days.forEach(function(n){
       var chip=document.querySelector('[data-xp="'+n+'"]'), s=score(n);
-      if(chip)chip.textContent=s.xp+' / '+s.max+' XP';
+      if(chip)chip.textContent=WC.xpLabel(s.xp,s.max,s.pen);
       var card=document.getElementById('d'+n);
       if(card){card.classList.remove('done','today','next');
         card.classList.add(s.done?'done':(n===cur?'today':'next'));
@@ -1613,7 +1787,7 @@ JS = r'''
     if(cg){
       var cd=0,ct=0,live=false;
       days.forEach(function(n){
-        if(D[n].w>=9&&D[n].w<=11){ct++;if(score(n).done)cd++;if(n===cur)live=true}
+        if(D[n].w>=10&&D[n].w<=11){ct++;if(score(n).done)cd++;if(n===cur)live=true}
       });
       cg.className='cap-group'+(cd===ct?' done':(live?' today':''));
     }
@@ -1627,7 +1801,7 @@ JS = r'''
 
   function paintXp(cur){
     var n=(view!=null?view:cur), c=D[n].cats, sc=score(n);
-    var rows={READ:'read',BUILD:'build',SQL:'sql',RECALL:'recall'};
+    var rows={REVIEW:'review',READ:'read',BUILD:'build',PRACTICE:'practice',RECALL:'recall'};
     for(var k in rows){
       var el=document.querySelector('[data-xprow="'+rows[k]+'"]');
       if(!el)continue;
@@ -1642,7 +1816,7 @@ JS = r'''
       pf.textContent=sc.done?'✓ EARNED':'○ LOCKED'}
     var tt=document.querySelector('[data-xprow="total"]');
     if(tt){tt.className='xp-state mono '+(sc.done?'earned':'open');
-      tt.textContent=sc.xp+' / '+sc.max}
+      tt.textContent=sc.xp+' / '+sc.max+(sc.pen?' (\u2212'+sc.pen+' hints)':'')}
     var lbl=$('xpFor');
     if(lbl)lbl.textContent='DAY '+n;
     // milestones
@@ -1717,7 +1891,7 @@ JS = r'''
     // a coherent streak: one active day for each completed day, ending yesterday
     var log={};
     for(var i=n-1;i>=1;i--){var dt=new Date();dt.setDate(dt.getDate()-i);log[stamp(dt)]=1}
-    S={checks:checks,log:log,rewards:S.rewards||{},star:S.star||{},started:S.started};
+    S={checks:checks,log:log,rewards:S.rewards||{},star:S.star||{},started:S.started,ws:S.ws};
     save(); syncBoxes(); render(n); paint();
     return true;
   }
@@ -1767,7 +1941,7 @@ JS = r'''
   /* ------------------------------------------------------------ backup */
   function snapshot(){
     return JSON.stringify({v:4,exported:new Date().toISOString(),
-      checks:S.checks,log:S.log,rewards:S.rewards||{},star:S.star||{},started:S.started},null,2);
+      checks:S.checks,log:S.log,rewards:S.rewards||{},star:S.star||{},started:S.started,ws:S.ws},null,2);
   }
   var box=$('ioBox');
   $('btnExport').onclick=function(){
@@ -1785,7 +1959,8 @@ JS = r'''
     var o;
     try{o=JSON.parse(text)}catch(e){return alert('That is not valid JSON.')}
     if(!o||typeof o!=='object'||!o.checks)return alert('No "checks" field — not a Daily Executor snapshot.');
-    S={checks:o.checks||{},log:o.log||{},rewards:o.rewards||{},star:o.star||{},started:o.started||today()};
+    S={checks:o.checks||{},log:o.log||{},rewards:o.rewards||{},star:o.star||{},started:o.started||today(),
+      ws:WC.normalizeWs(o.ws)};
     save(); syncBoxes();
     document.querySelectorAll('[data-reward]').forEach(function(el){
       el.value=(S.rewards||{})['reward.'+el.getAttribute('data-reward')]||'';
@@ -1815,8 +1990,8 @@ JS = r'''
     apply(box.value);
   };
   $('btnReset').onclick=function(){
-    if(!confirm('Erase every tick, the XP total and the streak history? This cannot be undone.'))return;
-    S={checks:{},log:{},rewards:{},star:{},started:today()};
+    if(!confirm('Erase every tick, hint, submission and saved draft, the XP total and the streak history? This cannot be undone.'))return;
+    S={checks:{},log:{},rewards:{},star:{},started:today(),ws:WC.emptyWs()};
     save();
     document.querySelectorAll('input[data-k]').forEach(function(cb){if(!cb.disabled)cb.checked=false});
     document.querySelectorAll('[data-reward]').forEach(function(el){el.value=''});
@@ -1999,6 +2174,25 @@ JS = r'''
       cb.disabled=false; cb.checked=on(cb.getAttribute('data-k'));
     });
   }
+
+  /* What the question workspace may touch. It cannot reach S directly. */
+  window.DE={
+    // the box a question's XP is on (its first day). Repeats on later days are reviews and are found with slot().
+    problem:function(id){var out=null; days.forEach(function(n){(D[n].probs||[]).forEach(function(p){if(p.id===id&&!p.review&&!out)out={id:p.id,key:p.key,cat:p.cat,bounty:p.bounty,day:n}})}); return out},
+    // whatever question sits on one checkbox, review or not
+    slot:function(key){var out=null; days.forEach(function(n){(D[n].probs||[]).forEach(function(p){if(p.key===key)out={id:p.id,key:p.key,cat:p.cat,bounty:p.bounty,day:n,review:!!p.review}})}); return out},
+    ws:function(){return S.ws},
+    // quiet=true saves without repainting the day cards (used for draft saves while typing)
+    setWs:function(w,quiet){S.ws=w; save(); if(!quiet)paint()},
+    isOn:on,
+    // an Accepted answer ticks the question's own box, the same way a click would
+    tick:function(key){
+      if(on(key))return;
+      S.checks[key]=1; S.log[today()]=(S.log[today()]||0)+1; save();
+      document.querySelectorAll('input[data-k="'+key+'"]').forEach(function(o){if(!o.disabled)o.checked=true});
+      paint();
+    },
+  };
   syncBoxes();
   render(firstOpen());
   paint();
@@ -2026,6 +2220,9 @@ CONFIG_BLOCK = """
    calendar; leave it "" and currentDay is used instead. accentColor recolours
    the TODAY highlight only. The Settings panel (gear, top right) edits the
    same six fields and saves them to your browser, so editing here is optional.
+   supabaseUrl and supabaseKey are optional and only matter if you want sign-in,
+   shared solutions and discussion. Leave them "" and the community stays off
+   while everything else works. Steps: supabase/README.md.
    ===================================================================== */
 window.CONFIG = {
   programTitle: "AI + Data + Lakehouse Engineer",
@@ -2033,7 +2230,9 @@ window.CONFIG = {
   startDate:    "",          // e.g. "2026-01-06" — first day of Week 1
   currentDay:   1,           // used when startDate is empty. 1-84
   userName:     "",          // optional, shown in the masthead
-  accentColor:  "#c47f17"    // the TODAY colour, light mode
+  accentColor:  "#c47f17",   // the TODAY colour, light mode
+  supabaseUrl:  "",          // optional: https://<project>.supabase.co
+  supabaseKey:  ""           // optional: the project's anon (public) key. Never the service_role key.
 };
 /* ===== nothing below this line needs editing ========================== */
 """
@@ -2053,8 +2252,8 @@ def build():
         'res': collapsibles(PLAN['resources'], 'resources', '05', 'RESOURCE LIBRARY',
                             'EVERY LINK FROM THE PLAN / GROUPED BY HOW YOU USE IT'),
         'cheats': collapsibles(PLAN['cheats'], 'cheats', '06', 'CHEAT SHEETS',
-                               'TEN-MINUTE WARM-UP / SKIM BEFORE THE CARD'),
-        'days': all_days(), 'arc': program_arc(), 'backup': backup_panel(),
+                               'SKIM BEFORE THE CARD / THEY FEED THE REVIEW LOOP'),
+        'play': playground_panel(), 'days': all_days(), 'arc': program_arc(), 'backup': backup_panel(),
     }
     data = json.dumps(DAYDATA, ensure_ascii=False, separators=(',', ':'))
     doc = f"""<!doctype html>
@@ -2062,15 +2261,15 @@ def build():
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Daily Executor — 12-Week AI + Data + Lakehouse Engineering Program</title>
-<meta name="description" content="An open 12-week AI + Data + Lakehouse engineering program: 84 day-cards, a daily ritual checklist, XP, streak and progress tracking. Bring your own targets.">
+<title>Daily Executor — 12-Week AI + Data Engineering Program</title>
+<meta name="description" content="An open 12-week AI + Data engineering program: 84 two-hour day-cards with built-in spaced review, a daily ritual checklist, XP, streak and progress tracking. Bring your own targets.">
 <meta name="color-scheme" content="light dark">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=IBM+Plex+Mono:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%2316181c'/><text x='50' y='72' font-size='62' font-family='monospace' font-weight='bold' fill='%23c8341f' text-anchor='middle'>8</text></svg>">
 <script>{CONFIG_BLOCK}</script>
-<style>{CSS}</style>
+<style>{CSS}{PG_CSS}{WS_CSS}</style>
 <script>{BOOT_THEME}</script>
 </head>
 <body>
@@ -2084,6 +2283,7 @@ def build():
 {parts['xp']}
 {parts['res']}
 {parts['cheats']}
+{parts['play']}
 {parts['days']}
 {parts['arc']}
 {parts['backup']}
@@ -2121,7 +2321,14 @@ def build():
   <span>STATE SAVES IN THIS BROWSER <span class="sep">/</span> EXPORT BEFORE A REDEPLOY</span>
 </footer>
 <script>window.DAYS={data};</script>
+<script>{JUDGE_JS}</script>
+<script>{CORE_JS}</script>
+<script>{COMMUNITY_JS}</script>
+<script>{PROBLEMS_JS}</script>
 <script>{JS}</script>
+<script>{PG_JS}</script>
+<script>{RUNTIME_JS}</script>
+<script>{WS_JS}</script>
 </body>
 </html>"""
     open(OUT, 'w').write(doc)
