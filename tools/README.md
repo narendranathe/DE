@@ -55,6 +55,53 @@ the first time someone presses RUN, so nothing is bundled into the page.
   plus `--host-resolver-rules=MAP cdn.jsdelivr.net 127.0.0.1` in Chromium. Playwright's `page.route`
   does not reliably serve `importScripts` from a worker.
 
+## Editing the question bank
+
+The 24 questions on the page are files in `tools/problems/`, one question per file. How to write one is in
+[`tools/problems/README.md`](problems/README.md). Then:
+
+```sh
+npm install                       # once; brings DuckDB, Pyodide, PGlite and the test tools
+node tools/build_problems.js      # checks every file, runs every reference solution, writes assets/problems.js
+python3 tools/render_site.py      # puts it all into docs/index.html
+```
+
+The build runs each reference solution against every case, and compares it with the answers typed by hand
+for the visible cases. A hidden case gets its expected output from the reference solution. `--check` fails
+if `assets/problems.js` is out of date.
+
+The workspace is these files in `tools/assets/`, inlined into the page by `render_site.py`:
+
+| File | Job |
+|---|---|
+| `problems.js` | generated question bank (do not edit) |
+| `judge.js` | runs a question's cases on an engine and returns the verdict; also hint cost and penalty maths |
+| `judge-runtime.js` | the browser engines the checker uses (own DuckDB and Pyodide, not the playground's) |
+| `workspace-core.js` | pure rules: hint order and cost, saved drafts and submissions, progress merge, safe text parsing |
+| `workspace.js`, `workspace.css` | the split view: tabs, editor, hints, solutions, discussion, submissions |
+| `community.js` | the Supabase adapter: sign-in, progress, submissions, solutions, comments, votes, reports |
+
+`workspace.js` talks to the tracker only through `window.DE` (defined at the end of the tracker script in
+`render_site.py`), and shows text only with `textContent`. `tests/static.test.js` fails if any of these
+files starts building markup from text.
+
+The community database is `supabase/schema.sql`. It was written test-first against Postgres with row-level
+security; `tests/schema.rls.test.js` runs it for real in PGlite.
+
+## Tests
+
+```sh
+npm test            # fast: rules, judge on real DuckDB and Python in Node, schema in Postgres, built page
+npm run test:e2e    # slower: Chromium on the built page; SHOTS=some/dir also saves screenshots
+```
+
+The browser suite needs Chromium through the `playwright` package and `openssl` on the path. It builds the page
+into a temp folder and answers the CDN downloads from `node_modules` through a local HTTPS server (`esbuild`
+bundles DuckDB into one file, the way jsDelivr's `+esm` URL does). Chromium sends only `cdn.jsdelivr.net` and
+localhost straight out and points everything else at a closed port, so a test cannot reach the real internet.
+In a sandbox that forces traffic through a proxy this is what stops the CDN host from failing with
+`ERR_TUNNEL_CONNECTION_FAILED`.
+
 ## generalize.py
 
 The content originally came from a personal study plan and carried its author's employer,

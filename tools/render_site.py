@@ -4,9 +4,39 @@ import json, os, re, html as H
 HERE = os.path.dirname(os.path.abspath(__file__))
 PLAN = json.loads(open(os.path.join(HERE, 'assets', 'plan.js')).read()
                   .split('=', 1)[1].rstrip().rstrip(';'))
-OUT = os.path.join(HERE, '..', 'docs', 'index.html')
-PG_CSS = open(os.path.join(HERE, 'assets', 'playground.css')).read()
-PG_JS = open(os.path.join(HERE, 'assets', 'playground.js')).read()
+OUT = os.environ.get('DE_OUT') or os.path.join(HERE, '..', 'docs', 'index.html')
+
+
+def asset(name):
+    return open(os.path.join(HERE, 'assets', name), encoding='utf-8').read()
+
+
+def inline_js(name):
+    """A script that sits inside a <script> block must not hold anything that ends or hides the block."""
+    src = asset(name)
+    if '<!--' in src or re.search(r'<script', src, re.I):
+        raise SystemExit(f'{name}: contains "<!--" or "<script", which can break the page when inlined')
+    return re.sub(r'</(script)', r'<\\/\1', src, flags=re.I)
+
+
+PG_CSS = asset('playground.css')
+PG_JS = asset('playground.js')
+WS_CSS = asset('workspace.css')
+JUDGE_JS, CORE_JS, COMMUNITY_JS = inline_js('judge.js'), inline_js('workspace-core.js'), inline_js('community.js')
+RUNTIME_JS, WS_JS = inline_js('judge-runtime.js'), inline_js('workspace.js')
+PROBLEMS_JS = inline_js('problems.js')
+
+# The question bank (tools/problems -> tools/assets/problems.js). Each question is tied to one checkbox of its day.
+PROBLEMS = json.loads(asset('problems.js').split('=', 1)[1].rstrip().rstrip(';'))
+PROBLEMS_BY_DAY = {}
+for _p in PROBLEMS:
+    PROBLEMS_BY_DAY.setdefault(_p['day'], []).append(_p)
+
+
+def match_anchor(text, anchor):
+    """Same rule as WorkspaceCore.matchAnchor: the link text is the anchor, or the anchor then a dash and a title."""
+    t, a = (text or '').strip(), (anchor or '').strip()
+    return bool(t and a) and (t == a or t.startswith(a + ' \u2014'))
 
 DONE_THRU, TODAY = 0, 1          # ships blank: a new reader starts at Day 1
 TOTAL = 84
@@ -614,6 +644,26 @@ def day_card(d, wk):
     idx = [0]                      # per-day running checkbox index
     cats = {'REVIEW': [], 'READ': [], 'BUILD': [], 'PRACTICE': [], 'RECALL': []}
     console = []                   # groups the TODAY console rebuilds
+    probs = []                     # bank questions found on this card: {id, key, cat, bounty}
+
+    def attach(fragment, cat):
+        """Put a SOLVE HERE button beside every checkbox whose link names a bank question of this day."""
+        def sub(m):
+            inner = m.group(1)
+            key, link = re.search(r'data-k="([\d.]+)"', inner), re.search(r'<a [^>]*>(.*?)</a>', inner, re.S)
+            if not key or not link:
+                return m.group(0)
+            text = H.unescape(strip_tags(link.group(1))).strip()
+            for q in PROBLEMS_BY_DAY.get(n, []):
+                if match_anchor(text, q['anchor']):
+                    if q['cat'] != cat:
+                        raise SystemExit(f"{q['id']}: its checkbox is in {cat}, the question says {q['cat']}")
+                    probs.append({'id': q['id'], 'key': key.group(1), 'cat': q['cat'], 'bounty': q['bounty']})
+                    btn = (f'<button type="button" class="solve mono" data-p="{q["id"]}" '
+                           f'aria-label="Solve here: {H.escape(q["title"], quote=True)}">SOLVE HERE</button>')
+                    return f'<li class="check">{inner}{btn}</li>'
+            return m.group(0)
+        return re.sub(r'<li class="check">(.*?)</li>', sub, fragment, flags=re.S)
 
     def stamp(fragment, cat):
         """Give every checkbox in this fragment a stable key and file it by category."""
@@ -637,6 +687,7 @@ def day_card(d, wk):
             hh = deglyph(sec['html'])
             cat = cat_of(sec['label'])
             hh, keys = stamp(hh, cat)
+            hh = attach(hh, cat)
 
             # the READ step is part of the ritual but carries no box in the source —
             # give it one so the 30 XP it is worth is actually claimable
@@ -659,11 +710,19 @@ def day_card(d, wk):
                      f'<span class="step-n">{step:02d}</span>{H.escape(label)}</div>'
                      f'<div class="step-b prose">{hh}</div></div>')
 
+    # every bank question of this day must have landed on exactly one checkbox
+    for q in PROBLEMS_BY_DAY.get(n, []):
+        found = sum(1 for x in probs if x['id'] == q['id'])
+        if found != 1:
+            raise SystemExit(f"{q['id']}: anchor \"{q['anchor']}\" matched {found} checkboxes on day {n}, expected 1")
+
     derived = sum(CAT_XP[c] for c in cats if cats[c]) + BONUS
     maxxp = stated_max(d['sections']) or derived
     DAYDATA[n] = {'t': H.unescape(deglyph(strip_tags(d['title']))), 'w': wk['week'], 'boss': d['boss'],
                   'target': deglyph(d['target']), 'cats': {c: v for c, v in cats.items() if v},
                   'max': maxxp, 'groups': console}
+    if probs:
+        DAYDATA[n]['probs'] = probs
 
     boss = '<span class="boss-tag mono">BOSS LEVEL</span>' if d['boss'] else ''
     return f'''
@@ -1392,6 +1451,7 @@ JS = r'''
   'use strict';
   var D=window.DAYS, TOTAL=__TOTAL__, SEED=__SEED__;
   var XP={REVIEW:20,READ:30,BUILD:50,PRACTICE:20,RECALL:25}, BONUS=25, KEY='daily-executor.v4';
+  var WC=window.WorkspaceCore, JD=window.Judge;   // question rules: hints, XP cost, saved attempts
   var $=function(i){return document.getElementById(i)};
   function esc(s){return String(s).replace(/[&<>"]/g,function(c){
     return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]})}
@@ -1495,9 +1555,9 @@ JS = r'''
     var s=null;
     try{s=JSON.parse(localStorage.getItem(KEY))}catch(e){}
     if(s&&s.checks)return{checks:s.checks||{},log:s.log||{},rewards:s.rewards||{},star:s.star||{},
-      started:s.started||today()};
+      started:s.started||today(),ws:WC.normalizeWs(s.ws)};
     // ships blank: no progress, no streak, day 1 -- ready for a stranger
-    return {checks:{},log:{},rewards:{},star:{},started:today()};
+    return {checks:{},log:{},rewards:{},star:{},started:today(),ws:WC.emptyWs()};
   }
   function save(){try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}}
   function on(k){return !!S.checks[k]}
@@ -1514,7 +1574,14 @@ JS = r'''
     var done=has>0&&all;
     if(done)earned=D[n].max;           // cleared: the plan's own stated ceiling
     else if(earned>D[n].max)earned=D[n].max;
-    return{xp:earned,max:D[n].max,done:done,ticked:tick,total:tot};
+    // hints cost XP, but only where the question's category is fully earned, and never below 0
+    var pen=0;
+    if(D[n].probs){
+      var fullCat={};
+      for(var kc in c)fullCat[kc]=c[kc].every(on);
+      pen=JD.penaltyFor(D[n].probs,S.ws.hints,fullCat);
+    }
+    return{xp:JD.applyPenalty(earned,pen),pen:pen,max:D[n].max,done:done,ticked:tick,total:tot};
   }
   function totals(){
     var xp=0,done=0,tick=0,tot=0;
@@ -1581,7 +1648,7 @@ JS = r'''
   function paintConsole(){
     if(view==null)return;
     var s=score(view);
-    $('conXp').textContent=s.xp+' / '+s.max+' XP';
+    $('conXp').textContent=WC.xpLabel(s.xp,s.max,s.pen);
     $('conChecks').textContent=s.ticked+' OF '+s.total+' TICKED';
     $('conRail').style.width=(s.total?s.ticked/s.total*100:0)+'%';
     $('conRail').className=s.done?'full':'';
@@ -1651,7 +1718,7 @@ JS = r'''
     // per-day XP chips + week tallies in the log
     days.forEach(function(n){
       var chip=document.querySelector('[data-xp="'+n+'"]'), s=score(n);
-      if(chip)chip.textContent=s.xp+' / '+s.max+' XP';
+      if(chip)chip.textContent=WC.xpLabel(s.xp,s.max,s.pen);
       var card=document.getElementById('d'+n);
       if(card){card.classList.remove('done','today','next');
         card.classList.add(s.done?'done':(n===cur?'today':'next'));
@@ -1727,7 +1794,7 @@ JS = r'''
       pf.textContent=sc.done?'✓ EARNED':'○ LOCKED'}
     var tt=document.querySelector('[data-xprow="total"]');
     if(tt){tt.className='xp-state mono '+(sc.done?'earned':'open');
-      tt.textContent=sc.xp+' / '+sc.max}
+      tt.textContent=sc.xp+' / '+sc.max+(sc.pen?' (\u2212'+sc.pen+' hints)':'')}
     var lbl=$('xpFor');
     if(lbl)lbl.textContent='DAY '+n;
     // milestones
@@ -1802,7 +1869,7 @@ JS = r'''
     // a coherent streak: one active day for each completed day, ending yesterday
     var log={};
     for(var i=n-1;i>=1;i--){var dt=new Date();dt.setDate(dt.getDate()-i);log[stamp(dt)]=1}
-    S={checks:checks,log:log,rewards:S.rewards||{},star:S.star||{},started:S.started};
+    S={checks:checks,log:log,rewards:S.rewards||{},star:S.star||{},started:S.started,ws:S.ws};
     save(); syncBoxes(); render(n); paint();
     return true;
   }
@@ -1852,7 +1919,7 @@ JS = r'''
   /* ------------------------------------------------------------ backup */
   function snapshot(){
     return JSON.stringify({v:4,exported:new Date().toISOString(),
-      checks:S.checks,log:S.log,rewards:S.rewards||{},star:S.star||{},started:S.started},null,2);
+      checks:S.checks,log:S.log,rewards:S.rewards||{},star:S.star||{},started:S.started,ws:S.ws},null,2);
   }
   var box=$('ioBox');
   $('btnExport').onclick=function(){
@@ -1870,7 +1937,8 @@ JS = r'''
     var o;
     try{o=JSON.parse(text)}catch(e){return alert('That is not valid JSON.')}
     if(!o||typeof o!=='object'||!o.checks)return alert('No "checks" field — not a Daily Executor snapshot.');
-    S={checks:o.checks||{},log:o.log||{},rewards:o.rewards||{},star:o.star||{},started:o.started||today()};
+    S={checks:o.checks||{},log:o.log||{},rewards:o.rewards||{},star:o.star||{},started:o.started||today(),
+      ws:WC.normalizeWs(o.ws)};
     save(); syncBoxes();
     document.querySelectorAll('[data-reward]').forEach(function(el){
       el.value=(S.rewards||{})['reward.'+el.getAttribute('data-reward')]||'';
@@ -1900,8 +1968,8 @@ JS = r'''
     apply(box.value);
   };
   $('btnReset').onclick=function(){
-    if(!confirm('Erase every tick, the XP total and the streak history? This cannot be undone.'))return;
-    S={checks:{},log:{},rewards:{},star:{},started:today()};
+    if(!confirm('Erase every tick, hint, submission and saved draft, the XP total and the streak history? This cannot be undone.'))return;
+    S={checks:{},log:{},rewards:{},star:{},started:today(),ws:WC.emptyWs()};
     save();
     document.querySelectorAll('input[data-k]').forEach(function(cb){if(!cb.disabled)cb.checked=false});
     document.querySelectorAll('[data-reward]').forEach(function(el){el.value=''});
@@ -2084,6 +2152,22 @@ JS = r'''
       cb.disabled=false; cb.checked=on(cb.getAttribute('data-k'));
     });
   }
+
+  /* What the question workspace may touch. It cannot reach S directly. */
+  window.DE={
+    problem:function(id){var out=null; days.forEach(function(n){(D[n].probs||[]).forEach(function(p){if(p.id===id)out={id:p.id,key:p.key,cat:p.cat,bounty:p.bounty,day:n}})}); return out},
+    ws:function(){return S.ws},
+    // quiet=true saves without repainting the day cards (used for draft saves while typing)
+    setWs:function(w,quiet){S.ws=w; save(); if(!quiet)paint()},
+    isOn:on,
+    // an Accepted answer ticks the question's own box, the same way a click would
+    tick:function(key){
+      if(on(key))return;
+      S.checks[key]=1; S.log[today()]=(S.log[today()]||0)+1; save();
+      document.querySelectorAll('input[data-k="'+key+'"]').forEach(function(o){if(!o.disabled)o.checked=true});
+      paint();
+    },
+  };
   syncBoxes();
   render(firstOpen());
   paint();
@@ -2111,6 +2195,9 @@ CONFIG_BLOCK = """
    calendar; leave it "" and currentDay is used instead. accentColor recolours
    the TODAY highlight only. The Settings panel (gear, top right) edits the
    same six fields and saves them to your browser, so editing here is optional.
+   supabaseUrl and supabaseKey are optional and only matter if you want sign-in,
+   shared solutions and discussion. Leave them "" and the community stays off
+   while everything else works. Steps: supabase/README.md.
    ===================================================================== */
 window.CONFIG = {
   programTitle: "AI + Data + Lakehouse Engineer",
@@ -2118,7 +2205,9 @@ window.CONFIG = {
   startDate:    "",          // e.g. "2026-01-06" — first day of Week 1
   currentDay:   1,           // used when startDate is empty. 1-84
   userName:     "",          // optional, shown in the masthead
-  accentColor:  "#c47f17"    // the TODAY colour, light mode
+  accentColor:  "#c47f17",   // the TODAY colour, light mode
+  supabaseUrl:  "",          // optional: https://<project>.supabase.co
+  supabaseKey:  ""           // optional: the project's anon (public) key. Never the service_role key.
 };
 /* ===== nothing below this line needs editing ========================== */
 """
@@ -2155,7 +2244,7 @@ def build():
 <link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=IBM+Plex+Mono:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%2316181c'/><text x='50' y='72' font-size='62' font-family='monospace' font-weight='bold' fill='%23c8341f' text-anchor='middle'>8</text></svg>">
 <script>{CONFIG_BLOCK}</script>
-<style>{CSS}{PG_CSS}</style>
+<style>{CSS}{PG_CSS}{WS_CSS}</style>
 <script>{BOOT_THEME}</script>
 </head>
 <body>
@@ -2207,8 +2296,14 @@ def build():
   <span>STATE SAVES IN THIS BROWSER <span class="sep">/</span> EXPORT BEFORE A REDEPLOY</span>
 </footer>
 <script>window.DAYS={data};</script>
+<script>{JUDGE_JS}</script>
+<script>{CORE_JS}</script>
+<script>{COMMUNITY_JS}</script>
+<script>{PROBLEMS_JS}</script>
 <script>{JS}</script>
 <script>{PG_JS}</script>
+<script>{RUNTIME_JS}</script>
+<script>{WS_JS}</script>
 </body>
 </html>"""
     open(OUT, 'w').write(doc)

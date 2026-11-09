@@ -73,17 +73,50 @@ idea in a minute, then do the real build in your repo.
   caches it. Your code is saved in this browser only. Python in it cannot make ordinary web requests, use
   `input()`, or read your local files, and it cannot run Spark, Airflow or dbt.
 
+## Solve it here
+
+Weeks 1–3 have 24 questions you can solve without leaving the page: 12 in SQL (Days 1–6 and 8–13) and
+12 in Python (Days 15–18). Each one has a **SOLVE HERE** button next to its checkbox, in the day card and
+in the TODAY console. It opens the problem on the left and an editor on the right.
+
+- **RUN** checks the sample cases and shows your output beside the expected output.
+- **SUBMIT** checks every case, including hidden ones, and saves the attempt. Verdicts are Accepted,
+  Wrong Answer, Runtime Error and Time Limit Exceeded (5 seconds per case). Accepted ticks the question's
+  own checkbox for you. *Could not run the checker* is not a verdict on your code: it means the engine
+  did not download, so check your connection and try again.
+- **Hints cost XP.** Each question has a bounty: 20 XP for a SQL practice rep, 10 XP for a Python build
+  problem. Three hints and then the full approach open in order, and each asks you to confirm first. After
+  *k* reveals you have paid `round(bounty × k / 4)`, so the full approach costs the whole bounty. After
+  hint 1, hint 2, hint 3 and the approach, the running total is 5, 10, 15 and 20 XP for SQL and 3, 5, 8 and
+  10 XP for Python. The day line shows the result, for example
+  `150 / 170 XP (−10 hints)`. Once you solve a question every hint is free to read, and what you already
+  paid stays paid.
+- **Submissions** are kept in this browser, the last 50 for each question. Click one to load its code.
+- **Solutions and discussion** need sign-in, so they stay off until the owner of the page connects a free
+  Supabase project (see [`supabase/README.md`](supabase/README.md)). Then learners sign in with GitHub,
+  share a solution with a short explanation, read the solutions of people who solved the question or opened
+  its full approach, vote, reply in threads, hide a spoiler behind a click, report a comment, and keep their
+  attempts and hint count on every device. A moderator can hide a post. Everything else on the page works
+  without any of this.
+- The address `#p/sql-d02-department-top-three-salaries` opens a question directly.
+
+The checker runs in your browser with its own DuckDB and Python, separate from the playground, so a
+`CREATE TABLE` in an answer never touches your playground data. Because it runs in your browser, someone
+determined can fake an Accepted. That only unlocks other people's solutions, which is a spoiler and
+nothing more, so there is no server judge.
+
 ## Making it yours
 
 A `CONFIG` block near the top of `docs/index.html` holds six values — program title, target role,
-start date, current day, your name, accent colour. The gear icon in the nav edits the same
-fields and saves them to your browser, so you never have to touch the file.
+start date, current day, your name, accent colour — plus two optional ones, `supabaseUrl` and
+`supabaseKey`, for the community. The gear icon in the nav edits the six fields and saves them to your
+browser, so you never have to touch the file.
 
 Set `startDate` and today advances by the calendar. Leave it empty and `currentDay` is used.
 You can also paste *"today is Day 19"* into the TODAY IS box.
 
-Everything you tick — checkboxes, milestone rewards, your six STAR stories — lives in
-`localStorage`. Use **EXPORT STATE** before clearing site data or switching browsers.
+Everything you tick — checkboxes, milestone rewards, your six STAR stories, hints you opened, your
+submissions and code drafts — lives in `localStorage`. Use **EXPORT STATE** before clearing site data or switching browsers.
 This version stores progress under a new key (`daily-executor.v4`), so ticks saved by the earlier
 84-card version do not carry over.
 
